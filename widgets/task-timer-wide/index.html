@@ -10,8 +10,8 @@
       --ink:#111111;
       --muted:#6b7280;
       --line:#e5e7eb;
-      --accent:#9fb8a5;   /* 淡いグリーン */
-      --accent2:#9aa3ad;  /* 淡いグレー */
+      --accent:#9fb8a5;
+      --accent2:#9aa3ad;
       --shadow: 0 1px 0 rgba(17,17,17,.04), 0 8px 24px rgba(17,17,17,.06);
       --radius: 14px;
     }
@@ -25,7 +25,6 @@
       background:var(--bg);
     }
 
-    /* ワイド前提：最大幅を広めに */
     .wrap{
       width:100%;
       max-width: 980px;
@@ -77,16 +76,17 @@
       text-overflow:ellipsis;
     }
 
-    /* ここがワイドの肝：2カラム */
+    /* ★基本は2カラム（ワイド優先） */
     .grid{
       padding: 14px;
       display:grid;
       gap: 12px;
-      grid-template-columns: 1.05fr .95fr; /* 左：少し広め / 右：ログ */
+      grid-template-columns: minmax(420px, 1.1fr) minmax(320px, .9fr);
       align-items:start;
     }
-    /* 埋め込み枠が狭い人用：自動で縦並び */
-    @media (max-width: 820px){
+
+    /* ★本当に狭い時だけ縦並び（ここが今回の修正ポイント） */
+    @media (max-width: 640px){
       .grid{ grid-template-columns: 1fr; }
     }
 
@@ -172,12 +172,15 @@
     }
     .ghost{ border-style:dashed; }
 
+    /* 右カラムが「見える」ように高さを持たせる */
     .logBox{
       border:1px solid var(--line);
       border-radius:14px;
       padding:12px;
       background:#fff;
-      min-height: 168px;
+      min-height: 240px;
+      max-height: 420px;
+      overflow:auto;
     }
     .logActions{
       display:flex; gap:10px; flex-wrap:wrap;
@@ -202,7 +205,6 @@
       user-select:none;
     }
 
-    /* 線画アイコン */
     svg{ display:block }
     .stroke{ stroke:#111; stroke-width:1.6; fill:none; stroke-linecap:round; stroke-linejoin:round; }
     .accentFill{ fill: var(--accent); opacity:.35; }
@@ -236,7 +238,7 @@
       </div>
 
       <div class="grid">
-        <!-- LEFT: Timer -->
+        <!-- LEFT -->
         <div class="panel">
           <div class="row">
             <label for="taskName">タスク名（任意）</label>
@@ -246,16 +248,16 @@
           <div class="time" id="timeDisplay">00:00:00</div>
 
           <div class="btns">
-            <button class="primary" id="startBtn" type="button" aria-label="スタート">
+            <button class="primary" id="startBtn" type="button">
               <span aria-hidden="true">▶</span> スタート
             </button>
-            <button id="pauseBtn" type="button" aria-label="一時停止" disabled>
+            <button id="pauseBtn" type="button" disabled>
               <span aria-hidden="true">Ⅱ</span> 一時停止
             </button>
-            <button id="stopBtn" type="button" aria-label="ストップ" disabled>
+            <button id="stopBtn" type="button" disabled>
               <span aria-hidden="true">■</span> ストップ
             </button>
-            <button class="ghost" id="resetBtn" type="button" aria-label="リセット">
+            <button class="ghost" id="resetBtn" type="button">
               <span aria-hidden="true">↺</span> リセット
             </button>
           </div>
@@ -266,7 +268,7 @@
           </div>
         </div>
 
-        <!-- RIGHT: Log -->
+        <!-- RIGHT -->
         <div class="panel">
           <div class="row" style="gap:10px;">
             <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px;">
@@ -279,10 +281,10 @@
             </div>
 
             <div class="logActions">
-              <button id="copySummaryBtn" type="button" title="Notionに貼れる形式でコピー">
+              <button id="copySummaryBtn" type="button">
                 <span aria-hidden="true">⧉</span> 今日の合計をコピー
               </button>
-              <button id="clearTodayBtn" type="button" title="今日の記録を削除">
+              <button id="clearTodayBtn" type="button">
                 <span aria-hidden="true">✕</span> 今日をクリア
               </button>
             </div>
@@ -291,17 +293,14 @@
       </div>
 
       <div class="footer">
-        <div style="display:flex; gap:10px; align-items:center;">
-          <span class="linklike" id="exportBtn" title="記録をテキストで表示">テキスト表示</span>
-        </div>
-        <div style="color:var(--muted);">task-timer-wide</div>
+        <span class="linklike" id="exportBtn">テキスト表示</span>
+        <span>task-timer-wide</span>
       </div>
     </div>
   </div>
 
 <script>
 (() => {
-  // ===== Utilities =====
   const pad = (n) => String(n).padStart(2, "0");
   const fmtHMS = (ms) => {
     const total = Math.max(0, Math.floor(ms / 1000));
@@ -312,13 +311,9 @@
   };
   const todayKey = () => {
     const d = new Date();
-    const y = d.getFullYear();
-    const m = pad(d.getMonth() + 1);
-    const day = pad(d.getDate());
-    return `${y}-${m}-${day}`;
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   };
 
-  // ===== Elements =====
   const taskName = document.getElementById("taskName");
   const timeDisplay = document.getElementById("timeDisplay");
   const startBtn = document.getElementById("startBtn");
@@ -333,46 +328,37 @@
   const clearTodayBtn = document.getElementById("clearTodayBtn");
   const exportBtn = document.getElementById("exportBtn");
 
-  // ===== State =====
   let timer = null;
   let running = false;
   let paused = false;
-  let startAt = 0;     // performance.now()
-  let elapsed = 0;     // ms
+  let startAt = 0;
+  let elapsed = 0;
+
   const STORAGE_KEY = "shiz-task-timer-logs-v1";
   const NAME_KEY = "shiz-task-timer-lastname-v1";
 
-  const loadLogs = () => {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
-    catch { return {}; }
-  };
+  const loadLogs = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } };
   const saveLogs = (obj) => localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
   const loadLastName = () => localStorage.getItem(NAME_KEY) || "";
   const saveLastName = (v) => localStorage.setItem(NAME_KEY, v);
 
   const setUIState = (mode) => {
-    // mode: "stop" | "run" | "pause"
     stateDot.className = "dot " + mode;
-    if (mode === "run") stateText.textContent = "計測中";
-    if (mode === "pause") stateText.textContent = "一時停止";
-    if (mode === "stop") stateText.textContent = "停止中";
-
+    stateText.textContent = (mode === "run") ? "計測中" : (mode === "pause") ? "一時停止" : "停止中";
     startBtn.disabled = (mode === "run");
     pauseBtn.disabled = (mode === "stop");
-    stopBtn.disabled = (mode === "stop");
+    stopBtn.disabled  = (mode === "stop");
     pauseBtn.textContent = (mode === "pause") ? "▶ 再開" : "Ⅱ 一時停止";
   };
 
   const tick = () => {
     const now = performance.now();
-    const ms = elapsed + (now - startAt);
-    timeDisplay.textContent = fmtHMS(ms);
+    timeDisplay.textContent = fmtHMS(elapsed + (now - startAt));
   };
 
   const start = () => {
     if (running) return;
-    running = true;
-    paused = false;
+    running = true; paused = false;
     startAt = performance.now();
     timer = setInterval(tick, 250);
     setUIState("run");
@@ -381,15 +367,12 @@
   const pauseOrResume = () => {
     if (!running && !paused) return;
     if (running) {
-      running = false;
-      paused = true;
-      clearInterval(timer);
-      timer = null;
+      running = false; paused = true;
+      clearInterval(timer); timer = null;
       elapsed += (performance.now() - startAt);
       setUIState("pause");
-    } else if (paused) {
-      paused = false;
-      running = true;
+    } else {
+      paused = false; running = true;
       startAt = performance.now();
       timer = setInterval(tick, 250);
       setUIState("run");
@@ -397,12 +380,9 @@
   };
 
   const reset = () => {
-    clearInterval(timer);
-    timer = null;
-    running = false;
-    paused = false;
-    startAt = 0;
-    elapsed = 0;
+    clearInterval(timer); timer = null;
+    running = false; paused = false;
+    startAt = 0; elapsed = 0;
     timeDisplay.textContent = "00:00:00";
     setUIState("stop");
   };
@@ -410,14 +390,10 @@
   const stopAndLog = () => {
     if (running) {
       elapsed += (performance.now() - startAt);
-      clearInterval(timer);
-      timer = null;
+      clearInterval(timer); timer = null;
       running = false;
     }
-    if (!paused && elapsed === 0) {
-      setUIState("stop");
-      return;
-    }
+    if (!paused && elapsed === 0) { setUIState("stop"); return; }
     paused = false;
 
     const key = todayKey();
@@ -425,25 +401,21 @@
     logs[key] = logs[key] || [];
 
     const name = (taskName.value || "").trim() || "タスク";
-    const entry = { t: Date.now(), name, ms: elapsed };
-    logs[key].push(entry);
+    logs[key].push({ t: Date.now(), name, ms: elapsed });
     saveLogs(logs);
-
     saveLastName(taskName.value || "");
 
     reset();
     renderToday();
   };
 
-  const msSum = (arr) => arr.reduce((a, b) => a + (b.ms || 0), 0);
+  const msSum = (arr) => arr.reduce((a,b)=>a+(b.ms||0),0);
 
   const renderToday = () => {
     const key = todayKey();
     todayLabel.textContent = key;
 
-    const logs = loadLogs();
-    const arr = logs[key] || [];
-
+    const arr = (loadLogs()[key] || []);
     if (!arr.length) {
       logArea.innerHTML = `<div style="color:var(--muted); font-size:12px;">まだ記録がありません</div>`;
       return;
@@ -452,52 +424,42 @@
     const total = msSum(arr);
     const rows = arr.slice().reverse().map(e => {
       const dt = new Date(e.t);
-      const hh = pad(dt.getHours());
-      const mm = pad(dt.getMinutes());
-      const nameEsc = (e.name || "タスク").replace(/[&<>"']/g, s => ({
+      const hh = pad(dt.getHours()), mm = pad(dt.getMinutes());
+      const nameEsc = (e.name||"タスク").replace(/[&<>"']/g, s => ({
         "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
       }[s]));
       return `
-        <div style="display:grid; grid-template-columns: 54px 1fr auto; gap:10px; align-items:center; padding:6px 0; border-top:1px dashed var(--line);">
+        <div style="display:grid; grid-template-columns:54px 1fr auto; gap:10px; align-items:center; padding:6px 0; border-top:1px dashed var(--line);">
           <div style="color:var(--muted); font-size:12px;">${hh}:${mm}</div>
           <div style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${nameEsc}</div>
           <div style="font-variant-numeric: tabular-nums; font-size:13px;">${fmtHMS(e.ms)}</div>
-        </div>
-      `;
+        </div>`;
     }).join("");
 
     logArea.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px;">
         <div style="font-size:12px; color:var(--muted);">合計</div>
-        <div style="font-variant-numeric: tabular-nums; font-size:14px; font-weight:650;">
-          ${fmtHMS(total)}
-        </div>
+        <div style="font-variant-numeric: tabular-nums; font-size:14px; font-weight:650;">${fmtHMS(total)}</div>
       </div>
-      ${rows}
-    `;
+      ${rows}`;
   };
 
   const copySummary = async () => {
     const key = todayKey();
-    const logs = loadLogs();
-    const arr = logs[key] || [];
+    const arr = (loadLogs()[key] || []);
     const total = fmtHMS(msSum(arr));
     const lines = arr.map(e => `- ${e.name}: ${fmtHMS(e.ms)}`);
     const text = [`${key} 合計: ${total}`, ...lines].join("\n");
-
     try {
       await navigator.clipboard.writeText(text);
       copySummaryBtn.textContent = "✓ コピーしました";
-      setTimeout(() => (copySummaryBtn.textContent = "⧉ 今日の合計をコピー"), 1200);
+      setTimeout(()=>copySummaryBtn.textContent="⧉ 今日の合計をコピー",1200);
     } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      copySummaryBtn.textContent = "✓ コピーしました";
-      setTimeout(() => (copySummaryBtn.textContent = "⧉ 今日の合計をコピー"), 1200);
+      const ta=document.createElement("textarea");
+      ta.value=text; document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); document.body.removeChild(ta);
+      copySummaryBtn.textContent="✓ コピーしました";
+      setTimeout(()=>copySummaryBtn.textContent="⧉ 今日の合計をコピー",1200);
     }
   };
 
@@ -523,7 +485,6 @@
     alert(blocks.join("\n\n"));
   };
 
-  // ===== Wire events =====
   startBtn.addEventListener("click", start);
   pauseBtn.addEventListener("click", pauseOrResume);
   stopBtn.addEventListener("click", stopAndLog);
@@ -537,16 +498,6 @@
 
   setUIState("stop");
   renderToday();
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden && timer) {
-      clearInterval(timer);
-      timer = setInterval(tick, 1000);
-    } else if (!document.hidden && timer) {
-      clearInterval(timer);
-      timer = setInterval(tick, 250);
-    }
-  });
 })();
 </script>
 </body>
