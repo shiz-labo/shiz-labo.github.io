@@ -3,15 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>shiz-labo | clock</title>
+  <title>shiz-labo | plant clock</title>
+
   <style>
     :root{
       --bg:#ffffff;
       --text:#222;
-      --muted:#6b7280;
-      --border:#e5e7eb;
+      --muted:#7b7b7b;
+      --line:#ededed;
       --accent:#9bbfa8; /* 淡いグリーン */
     }
+
     body{
       margin:0;
       height:100vh;
@@ -23,56 +25,74 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
                    "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
     }
-    .card{
-      min-width: 260px;
-      max-width: 340px;
-      padding: 18px 18px 14px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      box-shadow: 0 1px 0 rgba(0,0,0,0.02);
-      text-align:center;
-    }
-    .date{
-      font-size: 13px;
-      color: var(--muted);
-      letter-spacing: .02em;
-      margin-bottom: 6px;
-    }
-    .time{
-      font-size: 34px;
-      font-weight: 650;
-      letter-spacing: .04em;
-      line-height: 1.15;
-      margin: 2px 0 10px;
-    }
-    .dot{
-      display:inline-block;
-      width:6px; height:6px;
-      border-radius:999px;
-      background: var(--accent);
-      vertical-align: middle;
-      margin: 0 8px;
-    }
-    .msg{
-      font-size: 12px;
-      color: var(--muted);
+
+    .wrap{
       display:flex;
       align-items:center;
-      justify-content:center;
-      gap:8px;
+      gap:14px;
+      padding:18px 18px 16px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:rgba(255,255,255,0.92);
     }
-    .msg strong{
-      color: var(--text);
-      font-weight: 600;
+
+    /* 挿し絵（小さく、主張しない） */
+    .illust{
+      width:48px;
+      height:48px;
+      flex:0 0 auto;
+    }
+
+    .date{
+      font-size:13px;
+      color:var(--muted);
+      letter-spacing:.02em;
+      margin-bottom:4px;
+      text-align:left;
+      white-space:nowrap;
+    }
+
+    .time{
+      font-size:40px;
+      font-weight:600;
+      letter-spacing:.04em;
+      line-height:1.05;
+      text-align:left;
+      white-space:nowrap;
+    }
+
+    /* Notionの埋め込みで横幅が狭いときの調整 */
+    @media (max-width: 360px){
+      .wrap{ gap:12px; padding:16px 16px 14px; }
+      .illust{ width:44px; height:44px; }
+      .time{ font-size:36px; }
     }
   </style>
 </head>
 
 <body>
-  <div class="card" role="group" aria-label="clock widget">
-    <div class="date" id="dateText">—</div>
-    <div class="time" id="timeText">--:--</div>
-    <div class="msg"><span class="dot"></span><strong>いま</strong>を整える</div>
+  <div class="wrap" role="group" aria-label="plant clock widget">
+    <!-- 線画の植物（SVG） -->
+    <svg class="illust" viewBox="0 0 64 64" aria-hidden="true">
+      <!-- 鉢 -->
+      <path d="M20 30h24l-2 20H22z" fill="none" stroke="var(--text)" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M18 30h28" fill="none" stroke="var(--text)" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M24 50h16" fill="none" stroke="var(--text)" stroke-width="1.6" stroke-linecap="round"/>
+
+      <!-- 茎（淡いグリーン） -->
+      <path d="M32 30c0-10 0-16 0-20" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+
+      <!-- 葉 -->
+      <path d="M32 18c-6 0-10-4-10-10 6 0 10 4 10 10z" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M32 22c6 0 10-4 10-10-6 0-10 4-10 10z" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M32 26c-5 0-8-3-8-8 5 0 8 3 8 8z" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M32 26c5 0 8-3 8-8-5 0-8 3-8 8z" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+
+    <div class="txt">
+      <div class="date" id="dateText">—</div>
+      <div class="time" id="timeText">--:--</div>
+    </div>
   </div>
 
   <script>
@@ -80,8 +100,6 @@
 
     function update(){
       const now = new Date();
-
-      // 日本語の曜日
       const week = ["日","月","火","水","木","金","土"];
       const y = now.getFullYear();
       const m = now.getMonth() + 1;
@@ -96,7 +114,6 @@
     }
 
     update();
-    // 分が変わるタイミングに近い周期で更新
     setInterval(update, 1000);
   </script>
 </body>
