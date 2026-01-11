@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Ghibli Clock</title>
+  <style>
+    :root{
+      --accent: rgba(154, 193, 170, 0.95); /* 淡いグリーン */
+      --card: rgba(255,255,255,0.20);
+      --card2: rgba(0,0,0,0.22);
+      --text: rgba(255,255,255,0.92);
+      --shadow: rgba(0,0,0,0.28);
+      --radius: 16px;
+    }
+
+    /* iframe/Notionでも崩れにくい土台 */
+    html, body{
+      height: 100%;
+      margin: 0;
+    }
+    body{
+      font-family: ui-sans-serif, system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    /* 背景 */
+    .bg{
+      position: fixed;
+      inset: 0;
+      background-image: url("bg.jpg");
+      background-size: cover;
+      background-position: center;
+      transform: scale(1.02);
+    }
+    /* うっすらトーンを整えて“主張しすぎない” */
+    .bg::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: linear-gradient(
+        180deg,
+        rgba(0,0,0,0.18) 0%,
+        rgba(0,0,0,0.30) 55%,
+        rgba(0,0,0,0.40) 100%
+      );
+    }
+
+    /* 中央カード */
+    .wrap{
+      position: relative;
+      height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+    .card{
+      width: min(520px, 92vw);
+      padding: 18px 18px 16px;
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, var(--card), rgba(255,255,255,0.10));
+      border: 1px solid rgba(255,255,255,0.22);
+      box-shadow: 0 12px 30px var(--shadow);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: var(--text);
+    }
+
+    .top{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .date{
+      font-size: 14px;
+      letter-spacing: 0.04em;
+      opacity: 0.95;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+    }
+    .accent{
+      height: 2px;
+      flex: 1;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      border-radius: 999px;
+      opacity: 0.9;
+    }
+
+    .time{
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+      font-size: clamp(44px, 8vw, 64px);
+      letter-spacing: 0.06em;
+      line-height: 1.05;
+      text-align: center;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.40);
+      margin: 4px 0 6px;
+    }
+    .sub{
+      display:flex;
+      justify-content: center;
+      gap: 10px;
+      font-size: 12px;
+      opacity: 0.92;
+      letter-spacing: 0.06em;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+    }
+    .pill{
+      background: rgba(0,0,0,0.18);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      padding: 6px 10px;
+    }
+
+    /* Notionで縦に伸びすぎないための目安 */
+    @media (max-height: 220px){
+      .card{ padding: 14px 14px 12px; }
+      .top{ margin-bottom: 6px; }
+      .sub{ display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+
+  <div class="wrap">
+    <div class="card" role="group" aria-label="clock widget">
+      <div class="top">
+        <div class="date" id="date">0000/00/00 (月)</div>
+        <div class="accent" aria-hidden="true"></div>
+      </div>
+
+      <div class="time" id="time">00:00:00</div>
+
+      <div class="sub" aria-hidden="true">
+        <div class="pill" id="ymd">YYYY/MM/DD</div>
+        <div class="pill" id="dow">Mon</div>
+        <div class="pill" id="tz">JST</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const pad2 = (n) => String(n).padStart(2, "0");
+
+    function tick(){
+      const d = new Date();
+
+      const y = d.getFullYear();
+      const m = pad2(d.getMonth() + 1);
+      const day = pad2(d.getDate());
+
+      // 日本語曜日（短）
+      const dowJa = new Intl.DateTimeFormat("ja-JP", { weekday: "short" }).format(d);
+
+      // 24時間（秒まで）
+      const hh = pad2(d.getHours());
+      const mm = pad2(d.getMinutes());
+      const ss = pad2(d.getSeconds());
+
+      document.getElementById("date").textContent = `${y}/${m}/${day} (${dowJa})`;
+      document.getElementById("time").textContent = `${hh}:${mm}:${ss}`;
+
+      // うっすら情報（見た目用）
+      document.getElementById("ymd").textContent = `${y}/${m}/${day}`;
+      document.getElementById("dow").textContent = dowJa;
+
+      // タイムゾーン表示（環境依存だが日本ならJST想定）
+      try{
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "JST";
+        document.getElementById("tz").textContent = tz;
+      }catch(e){
+        document.getElementById("tz").textContent = "JST";
+      }
+    }
+
+    tick();
+    setInterval(tick, 250);
+  </script>
+</body>
+</html>
