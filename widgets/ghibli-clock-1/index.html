@@ -10,14 +10,13 @@
 
   <style>
     :root{
-      --accent: rgba(154, 193, 170, 0.95); /* 淡いグリーン */
+      --accent: rgba(154, 193, 170, 0.95);
       --text: rgba(255,255,255,0.92);
       --shadow: rgba(0,0,0,0.28);
       --radius: 16px;
       --cardA: rgba(255,255,255,0.20);
       --cardB: rgba(255,255,255,0.10);
     }
-
     html, body{ height: 100%; margin: 0; }
     body{
       font-family: ui-sans-serif, system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
@@ -25,18 +24,15 @@
       overflow: hidden;
     }
 
-    /* 背景 */
     .bg{
       position: fixed;
       inset: 0;
-      background: linear-gradient(180deg, #e9e9e9 0%, #dcdcdc 100%); /* フォールバック */
+      background: linear-gradient(180deg, #e9e9e9 0%, #dcdcdc 100%);
       background-size: cover;
       background-position: center;
       transform: scale(1.02);
     }
-    .bg.hasImage{
-      background-image: url("bg.jpg");
-    }
+    .bg.hasImage{ background-image: url("bg.jpg"); }
     .bg::after{
       content:"";
       position:absolute;
@@ -111,7 +107,6 @@
       text-shadow: 0 1px 2px rgba(0,0,0,0.35);
       flex-wrap: wrap;
     }
-
     .pill{
       background: rgba(0,0,0,0.18);
       border: 1px solid rgba(255,255,255,0.18);
@@ -123,7 +118,6 @@
       user-select: none;
     }
 
-    /* タイムゾーン切替ボタン */
     .tzBtn{
       appearance: none;
       border: 0;
@@ -167,8 +161,6 @@
       <div class="time" id="time">00:00:00</div>
 
       <div class="sub">
-        <div class="pill" id="dow">（日）</div>
-
         <div class="pill">
           <span class="tzDot" aria-hidden="true"></span>
           <button class="tzBtn" id="tzBtn" type="button" title="クリックでタイムゾーン切替">
@@ -181,63 +173,40 @@
   </div>
 
   <script>
-    // ---------- 背景画像の存在確認（失敗したらフォールバックのまま） ----------
+    // 背景画像が読めたら hasImage を付ける（読めないならグレー背景のまま）
     (function(){
       const img = new Image();
       img.onload = () => document.getElementById("bg").classList.add("hasImage");
       img.src = "bg.jpg";
     })();
 
-    // ---------- タイムゾーン切替 ----------
     const TZ_LIST = [
-      "Asia/Tokyo",
-      "UTC",
-      "Asia/Seoul",
-      "Asia/Taipei",
-      "Asia/Singapore",
-      "America/Los_Angeles",
-      "America/New_York",
-      "Europe/London",
-      "Europe/Paris",
-      "Australia/Sydney"
+      "Asia/Tokyo","UTC","Asia/Seoul","Asia/Taipei","Asia/Singapore",
+      "America/Los_Angeles","America/New_York","Europe/London","Europe/Paris","Australia/Sydney"
     ];
-
     const STORAGE_KEY = "ghibliClock.timeZone";
 
     function getSavedTZ(){
       const saved = localStorage.getItem(STORAGE_KEY);
       return (saved && TZ_LIST.includes(saved)) ? saved : "Asia/Tokyo";
     }
-
     let currentTZ = getSavedTZ();
 
-    const pad2 = (n) => String(n).padStart(2, "0");
-
     function formatPartsInTZ(date, timeZone){
-      // 年月日・時分秒を、指定TZで取り出す
       const parts = new Intl.DateTimeFormat("ja-JP", {
         timeZone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-        weekday: "short"
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+        hour12: false, weekday: "short"
       }).formatToParts(date);
 
       const map = {};
       for (const p of parts) map[p.type] = p.value;
 
       return {
-        y: map.year,
-        m: map.month,
-        d: map.day,
-        hh: map.hour,
-        mm: map.minute,
-        ss: map.second,
-        dow: map.weekday // 例: "日"
+        y: map.year, m: map.month, d: map.day,
+        hh: map.hour, mm: map.minute, ss: map.second,
+        dow: map.weekday
       };
     }
 
@@ -247,7 +216,6 @@
 
       document.getElementById("date").textContent = `${p.y}/${p.m}/${p.d} (${p.dow})`;
       document.getElementById("time").textContent = `${p.hh}:${p.mm}:${p.ss}`;
-      document.getElementById("dow").textContent = `(${p.dow})`;
       document.getElementById("tzLabel").textContent = currentTZ;
     }
 
