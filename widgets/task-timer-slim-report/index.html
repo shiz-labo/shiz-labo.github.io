@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <!-- deploy test v1 -->
+<body>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Task Timer (Report)</title>
@@ -213,4 +213,531 @@
 
     .summary{
       border:1px solid var(--line);
-      bo
+      border-radius: 12px;
+      padding: 10px 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom: 10px;
+      background:#fff;
+    }
+    .summary .sLabel{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .summary .sValue{
+      font-size:18px;
+      font-weight:700;
+      letter-spacing:.4px;
+    }
+
+    .logBox{
+      border:1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background:#fff;
+      max-height: 210px;
+      overflow:auto;
+    }
+    .empty{
+      font-size:13px;
+      color:var(--muted);
+      padding: 10px 2px;
+    }
+    .logItem{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:8px;
+      padding: 10px 0;
+      border-bottom:1px dashed #eef0f3;
+    }
+    .logItem:last-child{ border-bottom:none; }
+    .logMain{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width:0;
+    }
+    .range{
+      font-size:13px;
+      color:#111827;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .task{
+      font-size:12px;
+      color:var(--muted);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .dur{
+      font-size:13px;
+      font-weight:700;
+      white-space:nowrap;
+      align-self:center;
+    }
+
+    .logActions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top: 10px;
+    }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      background:#111827;
+      color:#fff;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      opacity:0;
+      pointer-events:none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .toast.show{
+      opacity:1;
+      transform: translateX(-50%) translateY(-4px);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div class="hleft">
+          <div class="icon" aria-hidden="true">
+            <!-- simple line icon -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="13" r="8" stroke="#111827" stroke-width="1.6"/>
+              <path d="M12 13V9" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M12 13L15 15" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M9 3h6" stroke="#111827" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="title">
+            <strong>Task Timer (Report)</strong>
+            <span>ログは「開始〜終了」で日報コピペ向け</span>
+          </div>
+        </div>
+        <div class="status">
+          <span class="dot" id="dot"></span>
+          <span id="statusText">停止中</span>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="grid">
+
+          <!-- Left: timer -->
+          <div class="panel">
+            <label for="taskInput">タスク名（任意）</label>
+            <input id="taskInput" type="text" placeholder="例：資料作成 / リサーチ など" />
+
+            <div class="time" id="timeView">00:00:00</div>
+
+            <div class="btnrow">
+              <button class="primary" id="startBtn">▶ Start</button>
+              <button id="pauseBtn" disabled>Ⅱ Pause</button>
+              <button id="stopBtn" disabled>■ Stop</button>
+              <button class="ghost" id="resetBtn">↺ Reset</button>
+            </div>
+
+            <div class="hint">
+              Stopで「今日のログ」に追加します。保存はこのブラウザ内です。
+            </div>
+          </div>
+
+          <!-- Right: log -->
+          <div class="panel">
+            <div class="rightTop">
+              <div class="rtTitle">
+                <strong>Today</strong>
+                <span>業務日報に貼れる形式でコピーできます</span>
+              </div>
+              <div class="date" id="dateView">—</div>
+            </div>
+
+            <div class="summary">
+              <div class="sLabel">Total</div>
+              <div class="sValue" id="totalView">00:00:00</div>
+            </div>
+
+            <div class="logBox" id="logBox">
+              <div class="empty" id="emptyText">まだ記録がありません</div>
+            </div>
+
+            <div class="logActions">
+              <button id="toggleLogBtn">▾ Open log</button>
+              <button id="copyBtn">⎘ Copy (Report)</button>
+              <button class="danger" id="clearBtn">✕ Clear</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied</div>
+
+  <script>
+    // ========= Utils =========
+    const pad = (n) => String(n).padStart(2, "0");
+
+    function formatHMS(ms){
+      const s = Math.max(0, Math.floor(ms/1000));
+      const h = Math.floor(s/3600);
+      const m = Math.floor((s%3600)/60);
+      const ss = s%60;
+      return `${pad(h)}:${pad(m)}:${pad(ss)}`;
+    }
+
+    function formatHM(ts){
+      const d = new Date(ts);
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function todayKey(){
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = pad(d.getMonth()+1);
+      const day = pad(d.getDate());
+      return `${y}-${m}-${day}`;
+    }
+
+    function storageKey(){
+      return `task_timer_report_v1_${todayKey()}`;
+    }
+
+    function showToast(text){
+      const t = document.getElementById("toast");
+      t.textContent = text;
+      t.classList.add("show");
+      setTimeout(()=> t.classList.remove("show"), 900);
+    }
+
+    // ========= State =========
+    let raf = null;
+    let running = false;
+    let paused = false;
+
+    let startedAt = null;        // first start timestamp (for range)
+    let lastTickAt = null;       // for accumulating while running
+    let elapsedMs = 0;           // accumulated elapsed
+    let pauseStartedAt = null;
+
+    let logOpen = true;
+
+    // ========= Elements =========
+    const dot = document.getElementById("dot");
+    const statusText = document.getElementById("statusText");
+    const timeView = document.getElementById("timeView");
+    const taskInput = document.getElementById("taskInput");
+
+    const startBtn = document.getElementById("startBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    const dateView = document.getElementById("dateView");
+    const totalView = document.getElementById("totalView");
+    const logBox = document.getElementById("logBox");
+    const emptyText = document.getElementById("emptyText");
+
+    const toggleLogBtn = document.getElementById("toggleLogBtn");
+    const copyBtn = document.getElementById("copyBtn");
+    const clearBtn = document.getElementById("clearBtn");
+
+    // ========= Log Storage =========
+    function loadLog(){
+      try{
+        const raw = localStorage.getItem(storageKey());
+        if(!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      }catch(e){
+        return [];
+      }
+    }
+
+    function saveLog(arr){
+      localStorage.setItem(storageKey(), JSON.stringify(arr));
+    }
+
+    // ========= Rendering =========
+    function setStatus(mode){
+      // mode: "stopped" | "running" | "paused"
+      if(mode === "running"){
+        dot.classList.add("running");
+        statusText.textContent = "計測中";
+      }else if(mode === "paused"){
+        dot.classList.remove("running");
+        statusText.textContent = "一時停止";
+      }else{
+        dot.classList.remove("running");
+        statusText.textContent = "停止中";
+      }
+    }
+
+    function renderTime(){
+      timeView.textContent = formatHMS(elapsedMs);
+    }
+
+    function renderLog(){
+      const items = loadLog();
+      // total
+      const total = items.reduce((sum, it)=> sum + (it.durationMs || 0), 0);
+      totalView.textContent = formatHMS(total);
+
+      // list
+      logBox.innerHTML = "";
+      if(items.length === 0){
+        const e = document.createElement("div");
+        e.className = "empty";
+        e.textContent = "まだ記録がありません";
+        logBox.appendChild(e);
+        return;
+      }
+
+      // newest first
+      const sorted = [...items].sort((a,b)=> (b.endAt||0) - (a.endAt||0));
+
+      sorted.forEach(it=>{
+        const row = document.createElement("div");
+        row.className = "logItem";
+
+        const main = document.createElement("div");
+        main.className = "logMain";
+
+        const range = document.createElement("div");
+        range.className = "range";
+        const st = it.startAt ? formatHM(it.startAt) : "--:--";
+        const en = it.endAt ? formatHM(it.endAt) : "--:--";
+        range.textContent = `${st}–${en}`;
+
+        const task = document.createElement("div");
+        task.className = "task";
+        task.textContent = it.task && it.task.trim() ? it.task.trim() : "Task";
+
+        main.appendChild(range);
+        main.appendChild(task);
+
+        const dur = document.createElement("div");
+        dur.className = "dur";
+        dur.textContent = formatHMS(it.durationMs || 0);
+
+        row.appendChild(main);
+        row.appendChild(dur);
+        logBox.appendChild(row);
+      });
+
+      if(!logOpen){
+        logBox.style.display = "none";
+      }else{
+        logBox.style.display = "block";
+      }
+    }
+
+    function syncButtons(){
+      startBtn.disabled = running && !paused;
+      pauseBtn.disabled = !running;
+      stopBtn.disabled = !running;
+      pauseBtn.textContent = paused ? "▶ Resume" : "Ⅱ Pause";
+      setStatus(running ? (paused ? "paused" : "running") : "stopped");
+    }
+
+    // ========= Timer Loop =========
+    function loop(now){
+      if(!running || paused) return;
+
+      const t = Date.now();
+      if(lastTickAt == null) lastTickAt = t;
+      const delta = t - lastTickAt;
+      lastTickAt = t;
+
+      elapsedMs += delta;
+      renderTime();
+
+      raf = requestAnimationFrame(loop);
+    }
+
+    function start(){
+      if(running && !paused) return;
+
+      const now = Date.now();
+
+      if(!running){
+        // first start
+        running = true;
+        paused = false;
+        startedAt = now;
+        lastTickAt = now;
+      }else{
+        // resume
+        paused = false;
+        lastTickAt = now;
+        if(pauseStartedAt){
+          pauseStartedAt = null;
+        }
+      }
+
+      syncButtons();
+      raf = requestAnimationFrame(loop);
+    }
+
+    function pause(){
+      if(!running) return;
+      if(paused){
+        // resume
+        start();
+        return;
+      }
+      paused = true;
+      pauseStartedAt = Date.now();
+      lastTickAt = null;
+      if(raf) cancelAnimationFrame(raf);
+      raf = null;
+      syncButtons();
+    }
+
+    function stop(){
+      if(!running) return;
+
+      const endAt = Date.now();
+
+      // Add to log
+      const task = taskInput.value || "";
+      const entry = {
+        task,
+        startAt: startedAt,
+        endAt,
+        durationMs: elapsedMs
+      };
+
+      const items = loadLog();
+      items.push(entry);
+      saveLog(items);
+
+      // Reset timer state after stop
+      running = false;
+      paused = false;
+      startedAt = null;
+      lastTickAt = null;
+      pauseStartedAt = null;
+      elapsedMs = 0;
+      if(raf) cancelAnimationFrame(raf);
+      raf = null;
+
+      renderTime();
+      renderLog();
+      syncButtons();
+      showToast("Added to log");
+    }
+
+    function reset(){
+      // reset timer only (no log change)
+      running = false;
+      paused = false;
+      startedAt = null;
+      lastTickAt = null;
+      pauseStartedAt = null;
+      elapsedMs = 0;
+      if(raf) cancelAnimationFrame(raf);
+      raf = null;
+      renderTime();
+      syncButtons();
+    }
+
+    function toggleLog(){
+      logOpen = !logOpen;
+      toggleLogBtn.textContent = logOpen ? "▾ Open log" : "▸ Open log";
+      renderLog();
+    }
+
+    function buildReportText(){
+      const d = todayKey();
+      const items = loadLog().sort((a,b)=> (a.startAt||0) - (b.startAt||0));
+
+      const total = items.reduce((sum, it)=> sum + (it.durationMs || 0), 0);
+
+      // 日報に貼る想定（必要ならこのヘッダ文言を変えてOK）
+      const lines = [];
+      lines.push(`【業務日報】${d}`);
+      lines.push(`合計：${formatHMS(total)}`);
+      lines.push(``);
+
+      items.forEach(it=>{
+        const st = it.startAt ? formatHM(it.startAt) : "--:--";
+        const en = it.endAt ? formatHM(it.endAt) : "--:--";
+        const name = (it.task && it.task.trim()) ? it.task.trim() : "Task";
+        lines.push(`${st}–${en}  ${name}  (${formatHMS(it.durationMs || 0)})`);
+      });
+
+      return lines.join("\n");
+    }
+
+    async function copyReport(){
+      const text = buildReportText();
+      try{
+        await navigator.clipboard.writeText(text);
+        showToast("Copied (Report)");
+      }catch(e){
+        // fallback
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showToast("Copied (Report)");
+      }
+    }
+
+    function clearToday(){
+      if(!confirm("今日のログをすべて削除しますか？")) return;
+      localStorage.removeItem(storageKey());
+      renderLog();
+      showToast("Cleared");
+    }
+
+    // ========= Init =========
+    function init(){
+      dateView.textContent = todayKey();
+      renderTime();
+      renderLog();
+      syncButtons();
+
+      startBtn.addEventListener("click", start);
+      pauseBtn.addEventListener("click", pause);
+      stopBtn.addEventListener("click", stop);
+      resetBtn.addEventListener("click", reset);
+
+      toggleLogBtn.addEventListener("click", toggleLog);
+      copyBtn.addEventListener("click", copyReport);
+      clearBtn.addEventListener("click", clearToday);
+
+      // midnight rollover (simple check)
+      let lastDay = todayKey();
+      setInterval(()=>{
+        const cur = todayKey();
+        if(cur !== lastDay){
+          lastDay = cur;
+          dateView.textContent = cur;
+          renderLog();
+        }
+      }, 15000);
+    }
+
+    init();
+  </script>
+</body>
+</html>
