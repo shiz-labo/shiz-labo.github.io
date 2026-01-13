@@ -55,20 +55,35 @@ html,body{
 
 /* 日付 */
 .date{
-  font-size:18px;              /* ←大きく */
-  letter-spacing:.05em;
-  opacity:.95;
-  margin-bottom:6px;
-  text-shadow:0 2px 6px rgba(0,0,0,.5);
+  font-size:22px;              /* 少し大きめ */
+  font-weight:600;             /* ← 太く */
+  letter-spacing:.06em;
+  color:#ffffff;               /* はっきり白 */
+  opacity:1;                   /* 薄くしない */
+  
+  text-shadow:
+    0 1px 4px rgba(0,0,0,.45),
+    0 4px 12px rgba(0,0,0,.55); /* 背景と分離 */
+  
+  margin-bottom:8px;
 }
+
 
 /* 時刻 */
 .time{
   font-size:64px;
-  letter-spacing:.08em;
+  font-weight:800;                 /* 太さをさらに強く */
+  letter-spacing:.06em;
   font-variant-numeric:tabular-nums;
-  text-shadow:0 4px 12px rgba(0,0,0,.45);
+  color:#ffffff;                   /* しっかり白 */
+  
+  /* コントラストを出す多重シャドウ */
+  text-shadow:
+    0 2px 6px rgba(0,0,0,.45),
+    0 6px 20px rgba(0,0,0,.55);
 }
+
+
 
 /* 下段 */
 .sub{
