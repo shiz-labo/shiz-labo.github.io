@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ghibli Clock</title>
+
+<style>
+:root{
+  --accent: rgba(154,193,170,0.95);
+  --text: rgba(255,255,255,0.95);
+  --shadow: rgba(0,0,0,0.35);
+}
+
+html,body{
+  height:100%;
+  margin:0;
+  font-family: system-ui,-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic","Meiryo",sans-serif;
+  overflow:hidden;
+}
+
+/* 背景 */
+.bg{
+  position:fixed;
+  inset:0;
+  background:#ddd;
+  background-size:cover;
+  background-position:center;
+}
+.bg.hasImage{ background-image:url("bg.jpg"); }
+.bg::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg,rgba(0,0,0,.15),rgba(0,0,0,.4));
+}
+
+/* 中央カード */
+.wrap{
+  position:relative;
+  height:100%;
+  display:grid;
+  place-items:center;
+}
+.card{
+  padding:22px 26px 20px;
+  border-radius:18px;
+  background:rgba(255,255,255,.18);
+  backdrop-filter:blur(8px);
+  box-shadow:0 10px 30px var(--shadow);
+  color:var(--text);
+  min-width:300px;
+  text-align:center;
+}
+
+/* 日付 */
+.date{
+  font-size:18px;              /* ←大きく */
+  letter-spacing:.05em;
+  opacity:.95;
+  margin-bottom:6px;
+  text-shadow:0 2px 6px rgba(0,0,0,.5);
+}
+
+/* 時刻 */
+.time{
+  font-size:64px;
+  letter-spacing:.08em;
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 4px 12px rgba(0,0,0,.45);
+}
+
+/* 下段 */
+.sub{
+  margin-top:10px;
+  display:flex;
+  justify-content:center;
+}
+.pill{
+  background:rgba(0,0,0,.25);
+  border-radius:999px;
+  padding:6px 14px;
+  font-size:12px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--accent);
+}
+button{
+  all:unset;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+<div class="bg" id="bg"></div>
+
+<div class="wrap">
+  <div class="card">
+    <div class="date" id="date">2026/01/11 (Sun)</div>
+    <div class="time" id="time">00:00:00</div>
+    <div class="sub">
+      <div class="pill">
+        <div class="dot"></div>
+        <button id="tzBtn"><span id="tzLabel">Asia/Tokyo</span> ↺</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 背景画像確認
+const img=new Image();
+img.onload=()=>document.getElementById("bg").classList.add("hasImage");
+img.src="bg.jpg";
+
+// タイムゾーン
+const zones=["Asia/Tokyo","UTC","America/New_York","Europe/London","Asia/Seoul"];
+let tz=localStorage.getItem("tz")||"Asia/Tokyo";
+
+function tick(){
+  const now=new Date();
+  const f=new Intl.DateTimeFormat("en-US",{
+    timeZone:tz,
+    year:"numeric",month:"2-digit",day:"2-digit",
+    weekday:"short",
+    hour:"2-digit",minute:"2-digit",second:"2-digit",
+    hour12:false
+  }).formatToParts(now);
+
+  const p={}; f.forEach(x=>p[x.type]=x.value);
+
+  document.getElementById("date").textContent=
+    `${p.year}/${p.month}/${p.day} (${p.weekday})`;
+  document.getElementById("time").textContent=
+    `${p.hour}:${p.minute}:${p.second}`;
+  document.getElementById("tzLabel").textContent=tz;
+}
+
+document.getElementById("tzBtn").onclick=()=>{
+  tz=zones[(zones.indexOf(tz)+1)%zones.length];
+  localStorage.setItem("tz",tz);
+  tick();
+};
+
+tick();
+setInterval(tick,250);
+</script>
+</body>
+</html>
