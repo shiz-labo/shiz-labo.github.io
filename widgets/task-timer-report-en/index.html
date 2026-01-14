@@ -360,12 +360,11 @@
               <div class="sValue" id="totalView">00:00:00</div>
             </div>
 
-            <div class="logBox" id="logBox">
-              <div class="empty" id="emptyText">No entries yet.</div>
-            </div>
+            <!-- NOTE: collapsed by default; content is rendered only when opened -->
+            <div class="logBox" id="logBox" style="display:none;"></div>
 
             <div class="logActions">
-              <button id="toggleLogBtn">▾ Open log</button>
+              <button id="toggleLogBtn">▸ Open log</button>
               <button id="copyBtn">⎘ Copy (Report)</button>
               <button class="danger" id="clearBtn">✕ Clear</button>
             </div>
@@ -423,7 +422,8 @@
     let lastTickAt = null;
     let elapsedMs = 0;
 
-    let logOpen = true;
+    // collapsed by default
+    let logOpen = false;
 
     // ===== Elements =====
     const dot = document.getElementById("dot");
@@ -483,7 +483,17 @@
       const total = items.reduce((sum, it)=> sum + (it.durationMs || 0), 0);
       totalView.textContent = formatHMS(total);
 
+      // If collapsed, hide box and do not render content
+      if(!logOpen){
+        logBox.style.display = "none";
+        logBox.innerHTML = "";
+        return;
+      }
+
+      // Open state
+      logBox.style.display = "block";
       logBox.innerHTML = "";
+
       if(items.length === 0){
         const e = document.createElement("div");
         e.className = "empty";
@@ -523,8 +533,6 @@
         row.appendChild(dur);
         logBox.appendChild(row);
       });
-
-      logBox.style.display = logOpen ? "block" : "none";
     }
 
     function syncButtons(){
@@ -627,7 +635,7 @@
 
     function toggleLog(){
       logOpen = !logOpen;
-      toggleLogBtn.textContent = logOpen ? "▾ Open log" : "▸ Open log";
+      toggleLogBtn.textContent = logOpen ? "▾ Close log" : "▸ Open log";
       renderLog();
     }
 
@@ -679,8 +687,10 @@
     function init(){
       dateView.textContent = todayKey();
       renderTime();
-      renderLog();
       syncButtons();
+
+      // important: render totals immediately (log collapsed)
+      renderLog();
 
       startBtn.addEventListener("click", start);
       pauseBtn.addEventListener("click", pause);
@@ -707,3 +717,4 @@
   </script>
 </body>
 </html>
+
