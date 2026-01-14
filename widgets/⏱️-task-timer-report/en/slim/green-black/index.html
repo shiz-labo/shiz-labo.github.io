@@ -6,38 +6,29 @@
   <title>Task Timer (Report)</title>
   <style>
     :root{
-      /* === Color Set (requested) === */
+      /* === Color Set === */
       --main:#558A86;      /* メイン */
       --sub:#C4C4C4;       /* サブ */
       --neutral:#35342F;   /* ニュートラル */
       --bgSoft:#FFFFFF;    /* 背景 */
       --darkGray:#4A4A4A;  /* 濃い文字色 */
 
-      /* existing tokens (keep structure) */
-      --bg: var(--bgSoft);
-      --card:#ffffff;
-      --text:#111827;
+      /* base */
+      --ink:#111827;
       --muted:#6b7280;
       --line:#e5e7eb;
       --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 30px rgba(0,0,0,.06);
-
-      /* map old accent tokens to new system */
-      --accent: var(--main);
-      --accent2: rgba(85,138,134,.12);
-
-      --btn:#ffffff;
-      --btnLine:#e5e7eb;
-      --btnText:#111827;
-      --danger:#ef4444;
+      --radius: 16px;
 
       --btnTextLight:#ffffff;
     }
+
     *{box-sizing:border-box}
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      background: var(--bg);
-      color: var(--text);
+      background: var(--bgSoft);
+      color: var(--ink);
     }
     .wrap{
       width: 100%;
@@ -45,19 +36,23 @@
       margin: 0 auto;
       padding: 18px;
     }
+
+    /* ==== Card outline like Slim ==== */
     .card{
-      border:1px solid var(--line);
-      border-radius: 16px;
-      background: var(--card);
+      border:2px solid var(--main);
+      border-radius: var(--radius);
+      background: #fff;
       box-shadow: var(--shadow);
       overflow:hidden;
     }
+
     .header{
       display:flex;
       align-items:center;
       justify-content:space-between;
       padding: 14px 16px;
       border-bottom:1px solid var(--line);
+      background:#fff;
     }
     .hleft{
       display:flex;
@@ -95,36 +90,30 @@
       text-overflow:ellipsis;
     }
 
-    /* ===== Status (right top) rules =====
-       Running: main + bold
-       Stopped: neutral + bold
-       Paused:  neutral + bold
-       (No JS change; we style based on dot.running presence) */
+    /* ==== Status (right top) like Slim ==== */
     .status{
       display:flex;
       align-items:center;
       gap:8px;
       font-size:13px;
       white-space:nowrap;
-      color: var(--neutral);
     }
     #statusText{
-      font-weight:700;      /* Bold always per spec */
-      color: var(--neutral);/* default: stopped/paused */
+      font-weight:700;          /* Bold always */
+      color: var(--neutral);    /* default: stopped/paused */
     }
-    .status .dot.running + #statusText{
-      color: var(--main);   /* running */
-    }
+    .state-running #statusText{ color: var(--main); }
+    .state-stopped #statusText{ color: var(--neutral); }
+    .state-paused  #statusText{ color: var(--neutral); }
 
     .dot{
       width:10px;height:10px;border-radius:50%;
-      border:1px solid var(--neutral);
+      border:1px solid var(--line);
       background:#fff;
     }
-    .dot.running{
-      background: var(--main);
-      border-color: var(--main);
-    }
+    .state-running .dot{ background: var(--main); border-color: var(--main); }
+    .state-paused  .dot{ background: var(--sub);  border-color: var(--sub); }
+    .state-stopped .dot{ background:#fff; border-color: var(--neutral); }
 
     .content{ padding: 14px; }
 
@@ -161,7 +150,7 @@
     }
     input:focus{
       border-color: rgba(85,138,134,.85);
-      box-shadow: 0 0 0 4px var(--accent2);
+      box-shadow: 0 0 0 4px rgba(85,138,134,.12);
     }
 
     .time{
@@ -182,10 +171,12 @@
       align-items:center;
       margin-top: 8px;
     }
+
+    /* ==== Buttons like Slim ==== */
     button{
-      border:1px solid var(--btnLine);
-      background: var(--btn);
-      color: var(--btnText);
+      border:1px solid var(--line);
+      background:#fff;
+      color: var(--ink);
       padding: 10px 12px;
       border-radius: 12px;
       font-size: 14px;
@@ -194,28 +185,48 @@
       align-items:center;
       gap:8px;
       user-select:none;
-      transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease, transform .02s ease;
+      transition: transform .02s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease, color .2s ease, opacity .2s ease;
     }
-    button:hover{ background:#fafafa; }
+    button:hover{ box-shadow: 0 6px 18px rgba(17,17,17,.06); }
     button:active{ transform: translateY(1px); }
-    button:disabled{ opacity:.45; cursor:not-allowed; }
+    button:disabled{ opacity:.45; cursor:not-allowed; box-shadow:none; }
 
-    /* Primary (Start) */
-    .primary{
-      border-color: var(--main);
-      background: var(--main);
-      color: var(--btnTextLight);
-    }
-
-    /* Ghost (Reset) */
-    .ghost{
-      border-style:dashed;
+    /* Start/Stop outline default */
+    .btn-start, .btn-stop{
+      background: transparent;
       border-color: var(--neutral);
       color: var(--neutral);
-      background: var(--bgSoft);
     }
 
-    .danger{ color: var(--danger); }
+    /* When stopped => Start primary */
+    .state-stopped .btn-start{
+      background: var(--main);
+      border-color: var(--main);
+      color: var(--btnTextLight);
+      opacity: 1;
+    }
+    /* When running => Stop primary */
+    .state-running .btn-stop{
+      background: var(--main);
+      border-color: var(--main);
+      color: var(--btnTextLight);
+      opacity: 1;
+    }
+
+    /* Pause always sub */
+    .btn-pause{
+      background: var(--sub);
+      border-color: var(--sub);
+      color: var(--darkGray);
+    }
+
+    /* Reset: bg + neutral outline */
+    .btn-reset{
+      background: var(--bgSoft);
+      border-color: var(--neutral);
+      color: var(--neutral);
+      border-style:dashed;
+    }
 
     .hint{
       margin-top: 10px;
@@ -318,6 +329,19 @@
       margin-top: 10px;
     }
 
+    /* Log action buttons like Slim */
+    .btn-log{
+      background: var(--sub);
+      border-color: var(--sub);
+      color: var(--darkGray);
+    }
+    .btn-clear{
+      background: var(--bgSoft);
+      border-color: var(--neutral);
+      color: var(--neutral);
+    }
+    .danger{ color: #ef4444; }
+
     .toast{
       position: fixed;
       left: 50%;
@@ -341,7 +365,8 @@
 
 <body>
   <div class="wrap">
-    <div class="card">
+    <!-- state class is applied here: state-stopped / state-running / state-paused -->
+    <div class="card state-stopped" id="appCard">
       <div class="header">
         <div class="hleft">
           <div class="icon" aria-hidden="true">
@@ -374,10 +399,10 @@
             <div class="time" id="timeView">00:00:00</div>
 
             <div class="btnrow">
-              <button class="primary" id="startBtn">▶ Start</button>
-              <button id="pauseBtn" disabled>Ⅱ Pause</button>
-              <button id="stopBtn" disabled>■ Stop</button>
-              <button class="ghost" id="resetBtn">↺ Reset</button>
+              <button class="btn-start" id="startBtn">▶ Start</button>
+              <button class="btn-pause" id="pauseBtn" disabled>Ⅱ Pause</button>
+              <button class="btn-stop" id="stopBtn" disabled>■ Stop</button>
+              <button class="btn-reset" id="resetBtn">↺ Reset</button>
             </div>
 
             <div class="hint">
@@ -404,9 +429,9 @@
             <div class="logBox" id="logBox" style="display:none;"></div>
 
             <div class="logActions">
-              <button id="toggleLogBtn">▸ Open log</button>
-              <button id="copyBtn">⎘ Copy (Report)</button>
-              <button class="danger" id="clearBtn">✕ Clear</button>
+              <button class="btn-log" id="toggleLogBtn">▸ Open log</button>
+              <button class="btn-log" id="copyBtn">⎘ Copy (Report)</button>
+              <button class="btn-clear danger" id="clearBtn">✕ Clear</button>
             </div>
           </div>
 
@@ -466,6 +491,8 @@
     let logOpen = false;
 
     // ===== Elements =====
+    const appCard = document.getElementById("appCard");
+
     const dot = document.getElementById("dot");
     const statusText = document.getElementById("statusText");
     const timeView = document.getElementById("timeView");
@@ -500,17 +527,25 @@
       localStorage.setItem(storageKey(), JSON.stringify(arr));
     }
 
+    // ===== UI State Class (Slim-style) =====
+    function setCardStateClass(mode){
+      appCard.classList.remove("state-running","state-stopped","state-paused");
+      if(mode === "running") appCard.classList.add("state-running");
+      else if(mode === "paused") appCard.classList.add("state-paused");
+      else appCard.classList.add("state-stopped");
+    }
+
     // ===== Rendering =====
     function setStatus(mode){
       if(mode === "running"){
-        dot.classList.add("running");
         statusText.textContent = "Running";
+        setCardStateClass("running");
       }else if(mode === "paused"){
-        dot.classList.remove("running");
         statusText.textContent = "Paused";
+        setCardStateClass("paused");
       }else{
-        dot.classList.remove("running");
         statusText.textContent = "Stopped";
+        setCardStateClass("stopped");
       }
     }
 
@@ -576,10 +611,11 @@
     }
 
     function syncButtons(){
-      startBtn.disabled = running && !paused;
+      startBtn.disabled = (running && !paused);
       pauseBtn.disabled = !running;
       stopBtn.disabled = !running;
       pauseBtn.textContent = paused ? "▶ Resume" : "Ⅱ Pause";
+
       setStatus(running ? (paused ? "paused" : "running") : "stopped");
     }
 
