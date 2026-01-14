@@ -6,21 +6,20 @@
   <title>Task Timer (Slim)</title>
   <style>
     :root{
-      /* === Palette === */
-      --mint:#63CA9F;      /* 鮮やか */
-      --pastel:#CFE0C9;    /* 淡い */
-      --gray:#C4C4C4;      /* グレー */
-
-      /* === Base === */
-      --bg:#ffffff;
+      /* === 1. Color tokens === */
+      --main:#63CA9F;     /* メイン（鮮やか） */
+      --sub:#CFE0C9;      /* サブ（パステル） */
+      --neutral:#C4C4C4;  /* ニュートラル/無効（グレー） */
+      --bgSoft:#F5F5F5;   /* 背景（極めて淡いグレー） */
       --ink:#111111;
       --muted:#6b7280;
+      --darkGray:#4A4A4A;
+
       --line:#e5e7eb;
       --shadow: 0 1px 0 rgba(17,17,17,.04), 0 8px 24px rgba(17,17,17,.06);
       --radius: 14px;
 
-      /* button text */
-      --btnTextDark:#111111;
+      /* derived */
       --btnTextLight:#ffffff;
     }
     *{box-sizing:border-box}
@@ -28,14 +27,15 @@
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
                    Arial, "Noto Sans", sans-serif;
-      color:var(--ink); background:var(--bg);
+      color:var(--ink);
+      background:var(--bgSoft);
     }
 
     .wrap{ width:100%; max-width: 980px; margin:0 auto; padding:10px; }
 
-    /* ✅ 外枠をミントに（添付の囲みイメージ） */
+    /* Timer outline (mint) */
     .card{
-      border:2px solid var(--mint);
+      border:2px solid var(--main);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
       background:#fff;
@@ -62,14 +62,24 @@
     }
 
     .hint{ font-size:12px; color:var(--muted); display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
     .dot{
       width:10px; height:10px; border-radius:50%;
       border:1px solid var(--line); display:inline-block; position:relative; top:1px;
       background:#fff;
     }
-    .dot.run{ background: var(--mint); border-color: var(--mint); }
-    .dot.pause{ background: var(--pastel); border-color: var(--pastel); }
-    .dot.stop{ background:#fff; }
+    .dot.run{ background: var(--main); border-color: var(--main); }
+    .dot.pause{ background: var(--sub); border-color: var(--sub); }
+    .dot.stop{ background:#fff; border-color: var(--neutral); }
+
+    /* === 2. Status text rules === */
+    #stateText{
+      font-weight: 700; /* Bold always */
+      color: var(--neutral); /* default: stopped */
+    }
+    .state-running #stateText{ color: var(--main); }
+    .state-stopped #stateText{ color: var(--neutral); }
+    .state-paused  #stateText{ color: var(--neutral); } /* spec: only Running/Stopped; keep neutral */
 
     .grid{
       padding:10px 12px;
@@ -92,7 +102,6 @@
     label{ font-size:11px; color:var(--muted); }
     .row{ display:grid; gap:6px; }
 
-    /* 入力欄は白ベース（色を載せない） */
     input[type="text"]{
       width:100%;
       border:1px solid var(--line);
@@ -117,7 +126,7 @@
 
     .btns{ display:flex; gap:10px; flex-wrap:wrap; }
 
-    /* 共通ボタン */
+    /* Base button */
     button{
       border:1px solid var(--line);
       background:#fff;
@@ -125,7 +134,7 @@
       padding: 9px 11px;
       font-size: 12.5px;
       cursor:pointer;
-      transition: transform .02s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
+      transition: transform .02s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease, color .2s ease;
       display:inline-flex;
       align-items:center;
       gap:8px;
@@ -133,36 +142,52 @@
     }
     button:active{ transform: translateY(1px); }
     button:hover{ box-shadow: 0 6px 18px rgba(17,17,17,.06); }
+
+    /* Keep disabled legible but subdued */
     button[disabled]{
-      opacity:.45;
+      opacity:.55;
       cursor:not-allowed;
       box-shadow:none;
-      filter:saturate(.2);
     }
 
-    /* ✅ 色指定（ご要望どおり固定） */
+    /* === 3. Main button styling rules (dynamic via container class) === */
+    /* Start/Stop: default to neutral outline */
     .btn-start, .btn-stop{
-      background: var(--mint);
-      border-color: var(--mint);
-      color: var(--btnTextLight);
-    }
-    .btn-pause{
-      background: var(--pastel);
-      border-color: var(--pastel);
-      color: var(--btnTextDark);
-    }
-    .btn-reset{
-      background: var(--gray);
-      border-color: var(--gray);
-      color: var(--btnTextDark);
-    }
-    .btn-soft{
-      background: var(--pastel);
-      border-color: var(--pastel);
-      color: var(--btnTextDark);
+      background: transparent;
+      border-color: var(--neutral);
+      color: var(--neutral);
     }
 
-    /* Totalは白のまま */
+    /* When stopped => Start is primary fill */
+    .state-stopped .btn-start{
+      background: var(--main);
+      border-color: var(--main);
+      color: var(--btnTextLight);
+      opacity: 1;
+    }
+    /* When running => Stop is primary fill */
+    .state-running .btn-stop{
+      background: var(--main);
+      border-color: var(--main);
+      color: var(--btnTextLight);
+      opacity: 1;
+    }
+
+    /* Pause (always sub) */
+    .btn-pause{
+      background: var(--sub);
+      border-color: var(--sub);
+      color: var(--darkGray);
+    }
+
+    /* Reset (always bgSoft + neutral outline/text) */
+    .btn-reset{
+      background: var(--bgSoft);
+      border-color: var(--neutral);
+      color: var(--neutral);
+    }
+
+    /* Total */
     .miniTotal{
       display:flex; justify-content:space-between; align-items:baseline; gap:10px;
       padding: 10px 12px;
@@ -178,7 +203,6 @@
     .logWrap{ display:none; margin-top:10px; }
     .logWrap.open{ display:block; }
 
-    /* log表示も白ベースに戻す（色はボタン中心） */
     .logBox{
       border:1px solid var(--line);
       border-radius:12px;
@@ -186,6 +210,18 @@
       background:#fff;
       max-height: 220px;
       overflow:auto;
+    }
+
+    /* === 4. Log buttons === */
+    .btn-log{
+      background: var(--sub);
+      border-color: var(--sub);
+      color: var(--darkGray);
+    }
+    .btn-clear{
+      background: var(--bgSoft);
+      border-color: var(--neutral);
+      color: var(--neutral);
     }
 
     .linklike{
@@ -199,13 +235,14 @@
 
     svg{ display:block }
     .stroke{ stroke:#111; stroke-width:1.6; fill:none; stroke-linecap:round; stroke-linejoin:round; }
-    .accentFill{ fill: var(--mint); opacity:.35; }
+    .accentFill{ fill: var(--main); opacity:.35; }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <div class="card" role="application" aria-label="Task Timer Slim">
+    <!-- state class is applied here: state-stopped / state-running / state-paused -->
+    <div class="card state-stopped" id="appCard" role="application" aria-label="Task Timer Slim">
       <div class="head">
         <div class="title">
           <div class="badge" aria-hidden="true">
@@ -270,13 +307,13 @@
           </div>
 
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-            <button class="btn-soft" id="toggleLogBtn" type="button">
+            <button class="btn-log" id="toggleLogBtn" type="button">
               <span aria-hidden="true">▾</span> Open log
             </button>
-            <button class="btn-soft" id="copySummaryBtn" type="button">
+            <button class="btn-log" id="copySummaryBtn" type="button">
               <span aria-hidden="true">⧉</span> Copy
             </button>
-            <button class="btn-soft" id="clearTodayBtn" type="button">
+            <button class="btn-clear" id="clearTodayBtn" type="button">
               <span aria-hidden="true">✕</span> Clear
             </button>
           </div>
@@ -309,6 +346,8 @@
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   };
 
+  const appCard = document.getElementById("appCard");
+
   const taskName = document.getElementById("taskName");
   const timeDisplay = document.getElementById("timeDisplay");
   const startBtn = document.getElementById("startBtn");
@@ -337,16 +376,32 @@
   const loadLastName = () => localStorage.getItem(NAME_KEY) || "";
   const saveLastName = (v) => localStorage.setItem(NAME_KEY, v);
 
+  const setCardStateClass = (mode) => {
+    appCard.classList.remove("state-running","state-stopped","state-paused");
+    if (mode === "run") appCard.classList.add("state-running");
+    else if (mode === "pause") appCard.classList.add("state-paused");
+    else appCard.classList.add("state-stopped");
+  };
+
   const setUIState = (mode) => {
     stateDot.className = "dot " + mode;
-    stateText.textContent = (mode === "run") ? "Running" : (mode === "pause") ? "Paused" : "Stopped";
+
+    if (mode === "run") {
+      stateText.textContent = "Running";
+    } else if (mode === "pause") {
+      stateText.textContent = "Paused";
+    } else {
+      stateText.textContent = "Stopped";
+    }
+
+    // enable/disable logic (same as before)
     startBtn.disabled = (mode === "run");
     pauseBtn.disabled = (mode === "stop");
     stopBtn.disabled  = (mode === "stop");
     pauseBtn.textContent = (mode === "pause") ? "▶ Resume" : "Ⅱ Pause";
 
-    // ボタン色指定に合わせて見た目は固定（disabledでも色は保持）
-    // disabled時の透明化はCSSで軽めにしている
+    // apply dynamic styling target
+    setCardStateClass(mode);
   };
 
   const tick = () => timeDisplay.textContent = fmtHMS(elapsed + (performance.now() - startAt));
