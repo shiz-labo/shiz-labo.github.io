@@ -99,8 +99,8 @@
       white-space:nowrap;
     }
     #statusText{
-      font-weight:700;          /* Bold always */
-      color: var(--neutral);    /* default: stopped/paused */
+      font-weight:700;
+      color: var(--neutral);
     }
     .state-running #statusText{ color: var(--main); }
     .state-stopped #statusText{ color: var(--neutral); }
@@ -172,7 +172,6 @@
       margin-top: 8px;
     }
 
-    /* ==== Buttons like Slim ==== */
     button{
       border:1px solid var(--line);
       background:#fff;
@@ -191,21 +190,17 @@
     button:active{ transform: translateY(1px); }
     button:disabled{ opacity:.45; cursor:not-allowed; box-shadow:none; }
 
-    /* Start/Stop outline default */
     .btn-start, .btn-stop{
       background: transparent;
       border-color: var(--neutral);
       color: var(--neutral);
     }
-
-    /* When stopped => Start primary */
     .state-stopped .btn-start{
       background: var(--main);
       border-color: var(--main);
       color: var(--btnTextLight);
       opacity: 1;
     }
-    /* When running => Stop primary */
     .state-running .btn-stop{
       background: var(--main);
       border-color: var(--main);
@@ -213,14 +208,12 @@
       opacity: 1;
     }
 
-    /* Pause always sub */
     .btn-pause{
       background: var(--sub);
       border-color: var(--sub);
       color: var(--darkGray);
     }
 
-    /* Reset (and Clear) */
     .btn-reset{
       background: var(--bgSoft);
       border-color: var(--neutral);
@@ -287,6 +280,7 @@
       color:var(--muted);
       padding: 10px 2px;
     }
+
     .logItem{
       display:grid;
       grid-template-columns: 1fr auto;
@@ -295,26 +289,28 @@
       border-bottom:1px dashed #eef0f3;
     }
     .logItem:last-child{ border-bottom:none; }
-    .logMain{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-      min-width:0;
-    }
+
+    /* ✅ 1行表示（range+task を気持ちよく離す） */
     .range{
       font-size:13px;
       color:#111827;
+      display:flex;
+      align-items:baseline;
+      gap:12px;                 /* ←ここが“余白” */
+      min-width:0;
       white-space:nowrap;
+    }
+    .r-time{
+      flex:0 0 auto;
+    }
+    .r-task{
+      flex:1 1 auto;
+      min-width:0;
       overflow:hidden;
       text-overflow:ellipsis;
-    }
-    .task{
-      font-size:12px;
-      color:var(--muted);
       white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
+
     .dur{
       font-size:13px;
       font-weight:700;
@@ -328,8 +324,6 @@
       gap:10px;
       margin-top: 10px;
     }
-
-    /* Log action buttons */
     .btn-log{
       background: var(--sub);
       border-color: var(--sub);
@@ -360,7 +354,6 @@
 
 <body>
   <div class="wrap">
-    <!-- state class is applied here: state-stopped / state-running / state-paused -->
     <div class="card state-stopped" id="appCard">
       <div class="header">
         <div class="hleft">
@@ -385,8 +378,6 @@
 
       <div class="content">
         <div class="grid">
-
-          <!-- Left: timer -->
           <div class="panel">
             <label for="taskInput">Task name (optional)</label>
             <input id="taskInput" type="text" placeholder="e.g., Doc prep / Research" />
@@ -406,7 +397,6 @@
             </div>
           </div>
 
-          <!-- Right: log -->
           <div class="panel">
             <div class="rightTop">
               <div class="rtTitle">
@@ -421,17 +411,14 @@
               <div class="sValue" id="totalView">00:00:00</div>
             </div>
 
-            <!-- NOTE: collapsed by default; content is rendered only when opened -->
             <div class="logBox" id="logBox" style="display:none;"></div>
 
             <div class="logActions">
               <button class="btn-log" id="toggleLogBtn">▸ Open log</button>
               <button class="btn-log" id="copyBtn">⎘ Copy (Report)</button>
-              <!-- ✅ Clear: no confirm, immediate delete -->
               <button class="btn-reset" id="clearBtn">✕ Clear</button>
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -440,7 +427,6 @@
   <div class="toast" id="toast">Copied</div>
 
   <script>
-    // ===== Utils =====
     const pad = (n) => String(n).padStart(2, "0");
 
     function formatHMS(ms){
@@ -458,10 +444,7 @@
 
     function todayKey(){
       const d = new Date();
-      const y = d.getFullYear();
-      const m = pad(d.getMonth()+1);
-      const day = pad(d.getDate());
-      return `${y}-${m}-${day}`;
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     }
 
     function storageKey(){
@@ -475,7 +458,6 @@
       setTimeout(()=> t.classList.remove("show"), 900);
     }
 
-    // ===== State =====
     let raf = null;
     let running = false;
     let paused = false;
@@ -484,12 +466,9 @@
     let lastTickAt = null;
     let elapsedMs = 0;
 
-    // collapsed by default
     let logOpen = false;
 
-    // ===== Elements =====
     const appCard = document.getElementById("appCard");
-
     const statusText = document.getElementById("statusText");
     const timeView = document.getElementById("timeView");
     const taskInput = document.getElementById("taskInput");
@@ -507,14 +486,13 @@
     const copyBtn = document.getElementById("copyBtn");
     const clearBtn = document.getElementById("clearBtn");
 
-    // ===== Storage =====
     function loadLog(){
       try{
         const raw = localStorage.getItem(storageKey());
         if(!raw) return [];
         const arr = JSON.parse(raw);
         return Array.isArray(arr) ? arr : [];
-      }catch(e){
+      }catch{
         return [];
       }
     }
@@ -523,7 +501,6 @@
       localStorage.setItem(storageKey(), JSON.stringify(arr));
     }
 
-    // ===== UI State Class (Slim-style) =====
     function setCardStateClass(mode){
       appCard.classList.remove("state-running","state-stopped","state-paused");
       if(mode === "running") appCard.classList.add("state-running");
@@ -531,7 +508,6 @@
       else appCard.classList.add("state-stopped");
     }
 
-    // ===== Rendering =====
     function setStatus(mode){
       if(mode === "running"){
         statusText.textContent = "Running";
@@ -554,14 +530,12 @@
       const total = items.reduce((sum, it)=> sum + (it.durationMs || 0), 0);
       totalView.textContent = formatHMS(total);
 
-      // If collapsed, hide box and do not render content
       if(!logOpen){
         logBox.style.display = "none";
         logBox.innerHTML = "";
         return;
       }
 
-      // Open state
       logBox.style.display = "block";
       logBox.innerHTML = "";
 
@@ -573,30 +547,35 @@
         return;
       }
 
-      // newest first
       const sorted = [...items].sort((a,b)=> (b.endAt||0) - (a.endAt||0));
 
       sorted.forEach(it=>{
         const row = document.createElement("div");
         row.className = "logItem";
 
-        const main = document.createElement("div");
-        main.className = "logMain";
+        const mainLine = document.createElement("div");
+        mainLine.className = "range";
 
-        const line = document.createElement("div");
-        line.className = "range";
         const st = it.startAt ? formatHM(it.startAt) : "--:--";
         const en = it.endAt ? formatHM(it.endAt) : "--:--";
         const name = (it.task && it.task.trim()) ? it.task.trim() : "Task";
-        line.textContent = `${st}–${en}  ${name}`;
 
-        main.appendChild(line);
+        const tSpan = document.createElement("span");
+        tSpan.className = "r-time";
+        tSpan.textContent = `${st}–${en}`;
+
+        const nSpan = document.createElement("span");
+        nSpan.className = "r-task";
+        nSpan.textContent = name;
+
+        mainLine.appendChild(tSpan);
+        mainLine.appendChild(nSpan);
 
         const dur = document.createElement("div");
         dur.className = "dur";
         dur.textContent = formatHMS(it.durationMs || 0);
 
-        row.appendChild(main);
+        row.appendChild(mainLine);
         row.appendChild(dur);
         logBox.appendChild(row);
       });
@@ -607,11 +586,9 @@
       pauseBtn.disabled = !running;
       stopBtn.disabled = !running;
       pauseBtn.textContent = paused ? "▶ Resume" : "Ⅱ Pause";
-
       setStatus(running ? (paused ? "paused" : "running") : "stopped");
     }
 
-    // ===== Timer Loop =====
     function loop(){
       if(!running || paused) return;
 
@@ -647,7 +624,7 @@
     function pause(){
       if(!running) return;
       if(paused){
-        start(); // resume
+        start();
         return;
       }
       paused = true;
@@ -685,9 +662,7 @@
       renderLog();
       syncButtons();
 
-      // ✅ Stop: clear task input after Stop completes
       taskInput.value = "";
-
       showToast("Added to log");
     }
 
@@ -704,7 +679,6 @@
       renderTime();
       syncButtons();
 
-      // ✅ Reset: clear task input
       taskInput.value = "";
     }
 
@@ -714,11 +688,6 @@
       renderLog();
     }
 
-    // ✅ Copy (Report) output format:
-    // Daily Report YYYY-MM-DD
-    // Total: 00:00:00
-    //
-    // start–end | 00:00:03 | Task
     function buildReportText(){
       const d = todayKey();
       const items = loadLog().sort((a,b)=> (a.startAt||0) - (b.startAt||0));
@@ -746,7 +715,7 @@
       try{
         await navigator.clipboard.writeText(text);
         showToast("Copied (Report)");
-      }catch(e){
+      }catch{
         const ta = document.createElement("textarea");
         ta.value = text;
         ta.style.position = "fixed";
@@ -759,7 +728,6 @@
       }
     }
 
-    /* ✅ Clear: no confirm, immediate delete */
     function clearToday(){
       localStorage.removeItem(storageKey());
       renderLog();
@@ -770,8 +738,6 @@
       dateView.textContent = todayKey();
       renderTime();
       syncButtons();
-
-      // totals render even when collapsed
       renderLog();
 
       startBtn.addEventListener("click", start);
@@ -783,7 +749,6 @@
       copyBtn.addEventListener("click", copyReport);
       clearBtn.addEventListener("click", clearToday);
 
-      // date rollover check
       let lastDay = todayKey();
       setInterval(()=>{
         const cur = todayKey();
