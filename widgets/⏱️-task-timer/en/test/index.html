@@ -10,7 +10,7 @@
       --main:#63CA9F;     /* メイン（鮮やか） */
       --sub:#CFE0C9;      /* サブ（パステル） */
       --neutral:#C4C4C4;  /* ニュートラル/無効（グレー） */
-      --bgSoft:#FFFFF;   /* 背景（白） */
+      --bgSoft:#FFFFFF;   /* 背景（白） */
       --ink:#111111;
       --muted:#6b7280;
       --darkGray:#4A4A4A;
@@ -185,6 +185,7 @@
       background: var(--bgSoft);
       border-color: var(--neutral);
       color: var(--neutral);
+      border-style:dashed; /* ✅ match Report */
     }
 
     /* Total */
@@ -222,6 +223,7 @@
       background: var(--bgSoft);
       border-color: var(--neutral);
       color: var(--neutral);
+      border-style:dashed; /* ✅ match Report */
     }
 
     svg{ display:block }
@@ -498,7 +500,7 @@
       }[s]));
 
       return `
-        <div style="display:grid; grid-template-columns:140px 1fr auto; gap:10px; align-items:center; padding:6px 0; border-top:1px dashed var(--line);">
+        <div style="display:grid; grid-template-columns:132px 1fr auto; gap:8px; align-items:center; padding:6px 0; border-top:1px dashed var(--line);">
           <div style="color:var(--muted); font-size:12px; font-variant-numeric: tabular-nums;">${when}</div>
           <div style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${nameEsc}</div>
           <div style="font-variant-numeric: tabular-nums; font-size:13px;">${fmtHMS(e.ms)}</div>
@@ -586,5 +588,6 @@
 </script>
 </body>
 </html>
+
 
 
