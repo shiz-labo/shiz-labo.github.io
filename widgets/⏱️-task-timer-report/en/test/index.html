@@ -290,13 +290,13 @@
     }
     .logItem:last-child{ border-bottom:none; }
 
-    /* ✅ 1行表示（range+task を気持ちよく離す） */
+    /* ✅ 1行表示（range+task をしっかり離す：レスポンシブ） */
     .range{
       font-size:13px;
       color:#111827;
       display:flex;
       align-items:baseline;
-      gap:12px;                 /* ←ここが“余白” */
+      gap: clamp(18px, 3vw, 40px); /* ←ここを拡張 */
       min-width:0;
       white-space:nowrap;
     }
