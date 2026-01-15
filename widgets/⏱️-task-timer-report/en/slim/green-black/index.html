@@ -401,7 +401,8 @@
             </div>
 
             <div class="hint">
-              Stop adds to today’s log. Saved in this browser.
+              Stop adds the time to today’s log.<br>
+              Reset clears the timer without adding it to the log.
             </div>
           </div>
 
@@ -687,6 +688,10 @@
       renderTime();
       renderLog();
       syncButtons();
+
+      // ✅ Common fix 2: clear task input after Stop completes (input clear only)
+      taskInput.value = "";
+
       showToast("Added to log");
     }
 
@@ -788,3 +793,4 @@
   </script>
 </body>
 </html>
+
