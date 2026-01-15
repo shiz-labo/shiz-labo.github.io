@@ -224,15 +224,6 @@
       color: var(--neutral);
     }
 
-    .linklike{
-      color: var(--muted);
-      text-decoration: underline;
-      text-underline-offset: 2px;
-      cursor:pointer;
-      user-select:none;
-      font-size:12px;
-    }
-
     svg{ display:block }
     .stroke{ stroke:#111; stroke-width:1.6; fill:none; stroke-linecap:round; stroke-linejoin:round; }
     .accentFill{ fill: var(--main); opacity:.35; }
@@ -313,7 +304,7 @@
               <span aria-hidden="true">▾</span> Open log
             </button>
             <button class="btn-log" id="copySummaryBtn" type="button">
-              <span aria-hidden="true">⧉</span> Copy
+              <span aria-hidden="true">⧉</span> Copy log
             </button>
             <button class="btn-clear" id="clearTodayBtn" type="button">
               <span aria-hidden="true">✕</span> Clear
@@ -324,11 +315,10 @@
             <div class="logBox" id="logArea" style="margin-top:10px;">
               <div style="color:var(--muted); font-size:12px;">No entries yet.</div>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <div style="display:flex; justify-content:flex-start; align-items:center; margin-top:8px;">
               <span style="font-size:11px; color:var(--muted);">
                 Log time is the start time
               </span>
-              <span class="linklike" id="exportBtn">Text view</span>
             </div>
           </div>
         </div>
@@ -376,7 +366,6 @@
   const logArea = document.getElementById("logArea");
   const copySummaryBtn = document.getElementById("copySummaryBtn");
   const clearTodayBtn = document.getElementById("clearTodayBtn");
-  const exportBtn = document.getElementById("exportBtn");
 
   let timer = null, running = false, paused = false, startAt = 0, elapsed = 0;
   let startedStamp = 0;
@@ -479,7 +468,7 @@
     startedStamp = 0;
     timeDisplay.textContent = "00:00:00";
 
-    // spec: Reset clears task input
+    // Reset clears task input
     taskName.value = "";
     saveLastName("");
 
@@ -493,7 +482,6 @@
     todayLabel.textContent = "";
 
     const arr = getAllArray();
-
     todayTotalEl.textContent = fmtHMS(msSum(arr));
 
     if (!arr.length) {
@@ -535,18 +523,21 @@
     arr.push({ start: startedStamp || Date.now(), t: Date.now(), name, ms: elapsed });
     setAllArray(arr);
 
-    // spec: Stop clears timer + task input
+    // Stop clears timer + task input
     reset();
     renderToday();
   };
 
-  const copySummary = async () => {
+  const copyLog = async () => {
     const arr = getAllArray();
     const total = fmtHMS(msSum(arr));
 
+    // Format: DateTime | Duration | Task
     const lines = arr.map(e => {
       const when = fmtYMDHM(e.start || e.t || Date.now());
-      return `- ${when} | ${e.name}: ${fmtHMS(e.ms)}`;
+      const dur  = fmtHMS(e.ms);
+      const name = (e.name || "Task");
+      return `${when} | ${dur} | ${name}`;
     });
 
     const text = [`Total: ${total}`, ...lines].join("\n");
@@ -554,49 +545,20 @@
     try {
       await navigator.clipboard.writeText(text);
       copySummaryBtn.textContent = "✓ Copied";
-      setTimeout(()=>copySummaryBtn.innerHTML = '<span aria-hidden="true">⧉</span> Copy', 900);
+      setTimeout(()=>copySummaryBtn.innerHTML = '<span aria-hidden="true">⧉</span> Copy log', 900);
     } catch {
       const ta=document.createElement("textarea");
       ta.value=text; document.body.appendChild(ta); ta.select();
       document.execCommand("copy"); document.body.removeChild(ta);
       copySummaryBtn.textContent = "✓ Copied";
-      setTimeout(()=>copySummaryBtn.innerHTML = '<span aria-hidden="true">⧉</span> Copy', 900);
+      setTimeout(()=>copySummaryBtn.innerHTML = '<span aria-hidden="true">⧉</span> Copy log', 900);
     }
   };
 
   const clearToday = () => {
-    // spec: no confirm, clear immediately (clears the logs below)
+    // no confirm, clear immediately
     setAllArray([]);
     renderToday();
-  };
-
-  const exportText = async () => {
-    const arr = getAllArray();
-    if (!arr.length) {
-      exportBtn.textContent = "No logs";
-      setTimeout(()=>exportBtn.textContent = "Text view", 900);
-      return;
-    }
-
-    const total = fmtHMS(msSum(arr));
-    const lines = arr.map(e => {
-      const when = fmtYMDHM(e.start || e.t || Date.now());
-      return `- ${when} | ${e.name}: ${fmtHMS(e.ms)}`;
-    });
-
-    const text = [`Total: ${total}`, ...lines].join("\n");
-
-    try {
-      await navigator.clipboard.writeText(text);
-      exportBtn.textContent = "✓ Copied";
-      setTimeout(()=>exportBtn.textContent = "Text view", 900);
-    } catch {
-      const ta=document.createElement("textarea");
-      ta.value=text; document.body.appendChild(ta); ta.select();
-      document.execCommand("copy"); document.body.removeChild(ta);
-      exportBtn.textContent = "✓ Copied";
-      setTimeout(()=>exportBtn.textContent = "Text view", 900);
-    }
   };
 
   const toggleLog = () => {
@@ -612,9 +574,8 @@
   resetBtn.addEventListener("click", reset);
 
   toggleLogBtn.addEventListener("click", toggleLog);
-  copySummaryBtn.addEventListener("click", copySummary);
+  copySummaryBtn.addEventListener("click", copyLog);
   clearTodayBtn.addEventListener("click", clearToday);
-  exportBtn.addEventListener("click", exportText);
 
   taskName.value = loadLastName();
   taskName.addEventListener("input", () => saveLastName(taskName.value));
@@ -625,4 +586,5 @@
 </script>
 </body>
 </html>
+
 
