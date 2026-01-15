@@ -224,15 +224,6 @@
       color: var(--neutral);
     }
 
-    .linklike{
-      color: var(--muted);
-      text-decoration: underline;
-      text-underline-offset: 2px;
-      cursor:pointer;
-      user-select:none;
-      font-size:12px;
-    }
-
     svg{ display:block }
     .stroke{ stroke:#111; stroke-width:1.6; fill:none; stroke-linecap:round; stroke-linejoin:round; }
     .accentFill{ fill: var(--main); opacity:.35; }
@@ -290,19 +281,22 @@
           </div>
 
           <div class="hint" style="margin-top:8px;">
-            <span>Stop adds the time to today’s log.<br>Reset clears the timer without adding it to the log.</span>
+            <span>Stop adds the time to the log.<br>Reset clears the timer without adding it to the log.</span>
           </div>
         </div>
 
         <div class="panel">
           <div style="display:flex; justify-content:space-between; align-items:baseline; gap:10px;">
-            <label style="margin:0;">Today</label>
-            <div style="font-size:11px; color:var(--muted);" id="todayLabel">—</div>
+            <label style="margin:0;"></label>
+            <div style="font-size:11px; color:var(--muted);" id="todayLabel"></div>
           </div>
 
           <div class="miniTotal" style="margin-top:8px;">
             <span style="font-size:12px; color:var(--muted);">Total</span>
             <b id="todayTotal">00:00:00</b>
+          </div>
+          <div style="margin-top:6px; font-size:11px; color:var(--muted);">
+            Total time of the logs below
           </div>
 
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
@@ -310,7 +304,7 @@
               <span aria-hidden="true">▾</span> Open log
             </button>
             <button class="btn-log" id="copySummaryBtn" type="button">
-              <span aria-hidden="true">⧉</span> Copy
+              <span aria-hidden="true">⧉</span> Copy log
             </button>
             <button class="btn-clear" id="clearTodayBtn" type="button">
               <span aria-hidden="true">✕</span> Clear
@@ -321,8 +315,10 @@
             <div class="logBox" id="logArea" style="margin-top:10px;">
               <div style="color:var(--muted); font-size:12px;">No entries yet.</div>
             </div>
-            <div style="display:flex; justify-content:flex-end; margin-top:8px;">
-              <span class="linklike" id="exportBtn">Text view</span>
+            <div style="display:flex; justify-content:flex-start; align-items:center; margin-top:8px;">
+              <span style="font-size:11px; color:var(--muted);">
+                Log time is the start time
+              </span>
             </div>
           </div>
         </div>
@@ -333,6 +329,7 @@
 <script>
 (() => {
   const pad = (n) => String(n).padStart(2, "0");
+
   const fmtHMS = (ms) => {
     const total = Math.max(0, Math.floor(ms / 1000));
     const h = Math.floor(total / 3600);
@@ -340,9 +337,15 @@
     const s = total % 60;
     return `${pad(h)}:${pad(m)}:${pad(s)}`;
   };
-  const todayKey = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+  const fmtYMDHM = (ts) => {
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const mo = pad(d.getMonth() + 1);
+    const da = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mm = pad(d.getMinutes());
+    return `${y}-${mo}-${da} ${hh}:${mm}`;
   };
 
   const appCard = document.getElementById("appCard");
@@ -363,15 +366,41 @@
   const logArea = document.getElementById("logArea");
   const copySummaryBtn = document.getElementById("copySummaryBtn");
   const clearTodayBtn = document.getElementById("clearTodayBtn");
-  const exportBtn = document.getElementById("exportBtn");
 
   let timer = null, running = false, paused = false, startAt = 0, elapsed = 0;
+  let startedStamp = 0;
 
   const STORAGE_KEY = "shiz-task-timer-logs-v1";
   const NAME_KEY = "shiz-task-timer-lastname-v1";
+  const ALL_KEY = "__all__";
 
-  const loadLogs = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } };
-  const saveLogs = (obj) => localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+  const loadRaw = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } };
+  const saveRaw = (obj) => localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+
+  const getAllArray = () => {
+    const raw = loadRaw();
+
+    // already migrated
+    if (Array.isArray(raw[ALL_KEY])) return raw[ALL_KEY];
+
+    // migrate legacy { "YYYY-MM-DD": [...] } into { "__all__": [...] }
+    const keys = Object.keys(raw);
+    const merged = [];
+    for (const k of keys) {
+      const arr = raw[k];
+      if (Array.isArray(arr)) {
+        for (const e of arr) merged.push(e);
+      }
+    }
+    const migrated = { [ALL_KEY]: merged };
+    saveRaw(migrated);
+    return migrated[ALL_KEY];
+  };
+
+  const setAllArray = (arr) => {
+    saveRaw({ [ALL_KEY]: arr });
+  };
+
   const loadLastName = () => localStorage.getItem(NAME_KEY) || "";
   const saveLastName = (v) => localStorage.setItem(NAME_KEY, v);
 
@@ -407,6 +436,10 @@
 
   const start = () => {
     if (running) return;
+
+    // first start stamp for this measurement (keep across pause/resume)
+    if (!paused && elapsed === 0) startedStamp = Date.now();
+
     running = true; paused = false;
     startAt = performance.now();
     timer = setInterval(tick, 250);
@@ -432,20 +465,23 @@
     clearInterval(timer); timer = null;
     running = false; paused = false;
     startAt = 0; elapsed = 0;
+    startedStamp = 0;
     timeDisplay.textContent = "00:00:00";
+
+    // spec: Reset clears task input
     taskName.value = "";
     saveLastName("");
+
     setUIState("stop");
   };
 
   const msSum = (arr) => arr.reduce((a,b)=>a+(b.ms||0),0);
 
   const renderToday = () => {
-    const key = todayKey();
-    todayLabel.textContent = key;
-    const logs = loadLogs();
-    const arr = logs[key] || [];
+    // Today row removed: keep empty
+    todayLabel.textContent = "";
 
+    const arr = getAllArray();
     todayTotalEl.textContent = fmtHMS(msSum(arr));
 
     if (!arr.length) {
@@ -454,14 +490,16 @@
     }
 
     const rows = arr.slice().reverse().map(e => {
-      const dt = new Date(e.t);
-      const hh = pad(dt.getHours()), mm = pad(dt.getMinutes());
+      const ts = (e.start || e.t || Date.now());
+      const when = fmtYMDHM(ts);
+
       const nameEsc = (e.name||"Task").replace(/[&<>"']/g, s => ({
         "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
       }[s]));
+
       return `
-        <div style="display:grid; grid-template-columns:54px 1fr auto; gap:10px; align-items:center; padding:6px 0; border-top:1px dashed var(--line);">
-          <div style="color:var(--muted); font-size:12px;">${hh}:${mm}</div>
+        <div style="display:grid; grid-template-columns:140px 1fr auto; gap:10px; align-items:center; padding:6px 0; border-top:1px dashed var(--line);">
+          <div style="color:var(--muted); font-size:12px; font-variant-numeric: tabular-nums;">${when}</div>
           <div style="font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${nameEsc}</div>
           <div style="font-variant-numeric: tabular-nums; font-size:13px;">${fmtHMS(e.ms)}</div>
         </div>`;
@@ -479,74 +517,47 @@
     if (!paused && elapsed === 0) { setUIState("stop"); return; }
     paused = false;
 
-    const key = todayKey();
-    const logs = loadLogs();
-    logs[key] = logs[key] || [];
+    const arr = getAllArray();
 
     const name = (taskName.value || "").trim() || "Task";
-    logs[key].push({ t: Date.now(), name, ms: elapsed });
-    saveLogs(logs);
+    arr.push({ start: startedStamp || Date.now(), t: Date.now(), name, ms: elapsed });
+    setAllArray(arr);
 
+    // spec: Stop clears timer + task input
     reset();
     renderToday();
   };
 
-  const copySummary = async () => {
-    const key = todayKey();
-    const logs = loadLogs();
-    const arr = logs[key] || [];
+  const copyLog = async () => {
+    const arr = getAllArray();
     const total = fmtHMS(msSum(arr));
-    const lines = arr.map(e => `- ${e.name}: ${fmtHMS(e.ms)}`);
-    const text = [`${key} Total: ${total}`, ...lines].join("\n");
+
+    const lines = arr.map(e => {
+      const when = fmtYMDHM(e.start || e.t || Date.now());
+      const dur  = fmtHMS(e.ms);
+      const name = (e.name || "Task");
+      return `${when} | ${dur} | ${name}`;
+    });
+
+    const text = [`Total: ${total}`, ...lines].join("\n");
 
     try {
       await navigator.clipboard.writeText(text);
       copySummaryBtn.textContent = "✓ Copied";
-      setTimeout(()=>copySummaryBtn.innerHTML = '<span aria-hidden="true">⧉</span> Copy', 900);
+      setTimeout(()=>copySummaryBtn.innerHTML = '<span aria-hidden="true">⧉</span> Copy log', 900);
     } catch {
       const ta=document.createElement("textarea");
       ta.value=text; document.body.appendChild(ta); ta.select();
       document.execCommand("copy"); document.body.removeChild(ta);
       copySummaryBtn.textContent = "✓ Copied";
-      setTimeout(()=>copySummaryBtn.innerHTML = '<span aria-hidden="true">⧉</span> Copy', 900);
+      setTimeout(()=>copySummaryBtn.innerHTML = '<span aria-hidden="true">⧉</span> Copy log', 900);
     }
   };
 
   const clearToday = () => {
-    const key = todayKey();
-    const logs = loadLogs();
-    if (!logs[key]) return;
-    delete logs[key];
-    saveLogs(logs);
+    // spec: no confirm, clear immediately (clears the logs below)
+    setAllArray([]);
     renderToday();
-  };
-
-  const exportText = async () => {
-    const logs = loadLogs();
-    const keys = Object.keys(logs).sort().reverse();
-    if (!keys.length) {
-      exportBtn.textContent = "No logs";
-      setTimeout(()=>exportBtn.textContent = "Text view", 900);
-      return;
-    }
-    const blocks = keys.map(k => {
-      const arr = logs[k] || [];
-      const total = fmtHMS(msSum(arr));
-      const lines = arr.map(e => `- ${e.name}: ${fmtHMS(e.ms)}`).join("\n");
-      return `${k} Total: ${total}\n${lines}`;
-    }).join("\n\n");
-
-    try {
-      await navigator.clipboard.writeText(blocks);
-      exportBtn.textContent = "✓ Copied";
-      setTimeout(()=>exportBtn.textContent = "Text view", 900);
-    } catch {
-      const ta=document.createElement("textarea");
-      ta.value=blocks; document.body.appendChild(ta); ta.select();
-      document.execCommand("copy"); document.body.removeChild(ta);
-      exportBtn.textContent = "✓ Copied";
-      setTimeout(()=>exportBtn.textContent = "Text view", 900);
-    }
   };
 
   const toggleLog = () => {
@@ -562,9 +573,8 @@
   resetBtn.addEventListener("click", reset);
 
   toggleLogBtn.addEventListener("click", toggleLog);
-  copySummaryBtn.addEventListener("click", copySummary);
+  copySummaryBtn.addEventListener("click", copyLog);
   clearTodayBtn.addEventListener("click", clearToday);
-  exportBtn.addEventListener("click", exportText);
 
   taskName.value = loadLastName();
   taskName.addEventListener("input", () => saveLastName(taskName.value));
@@ -575,3 +585,4 @@
 </script>
 </body>
 </html>
+
