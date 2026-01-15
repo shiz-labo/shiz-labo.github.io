@@ -689,7 +689,7 @@
       renderLog();
       syncButtons();
 
-      // ✅ Common fix 2: clear task input after Stop completes (input clear only)
+      // ✅ Common fix 2 (Stop): clear task input after Stop completes (input clear only)
       taskInput.value = "";
 
       showToast("Added to log");
@@ -707,6 +707,9 @@
 
       renderTime();
       syncButtons();
+
+      // ✅ Common fix 2 (Reset): clear task input (input clear only)
+      taskInput.value = "";
     }
 
     function toggleLog(){
@@ -793,4 +796,5 @@
   </script>
 </body>
 </html>
+
 
