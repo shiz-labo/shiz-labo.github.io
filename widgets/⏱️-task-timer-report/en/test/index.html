@@ -583,18 +583,14 @@
         const main = document.createElement("div");
         main.className = "logMain";
 
-        const range = document.createElement("div");
-        range.className = "range";
+        const line = document.createElement("div");
+        line.className = "range";
         const st = it.startAt ? formatHM(it.startAt) : "--:--";
         const en = it.endAt ? formatHM(it.endAt) : "--:--";
-        range.textContent = `${st}–${en}`;
+        const name = (it.task && it.task.trim()) ? it.task.trim() : "Task";
+        line.textContent = `${st}–${en}  ${name}`;
 
-        const task = document.createElement("div");
-        task.className = "task";
-        task.textContent = (it.task && it.task.trim()) ? it.task.trim() : "Task";
-
-        main.appendChild(range);
-        main.appendChild(task);
+        main.appendChild(line);
 
         const dur = document.createElement("div");
         dur.className = "dur";
