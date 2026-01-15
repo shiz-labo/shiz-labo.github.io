@@ -290,8 +290,7 @@
           </div>
 
           <div class="hint" style="margin-top:8px;">
-            <span>Stop adds to today’s log.</span>
-            <span>Saved in this browser.</span>
+            <span>Stop adds the time to today’s log.<br>Reset clears the timer without adding it to the log.</span>
           </div>
         </div>
 
@@ -434,6 +433,8 @@
     running = false; paused = false;
     startAt = 0; elapsed = 0;
     timeDisplay.textContent = "00:00:00";
+    taskName.value = "";
+    saveLastName("");
     setUIState("stop");
   };
 
@@ -485,7 +486,6 @@
     const name = (taskName.value || "").trim() || "Task";
     logs[key].push({ t: Date.now(), name, ms: elapsed });
     saveLogs(logs);
-    saveLastName(taskName.value || "");
 
     reset();
     renderToday();
@@ -521,17 +521,32 @@
     renderToday();
   };
 
-  const exportText = () => {
+  const exportText = async () => {
     const logs = loadLogs();
     const keys = Object.keys(logs).sort().reverse();
-    if (!keys.length) { alert("No logs yet."); return; }
+    if (!keys.length) {
+      exportBtn.textContent = "No logs";
+      setTimeout(()=>exportBtn.textContent = "Text view", 900);
+      return;
+    }
     const blocks = keys.map(k => {
       const arr = logs[k] || [];
       const total = fmtHMS(msSum(arr));
       const lines = arr.map(e => `- ${e.name}: ${fmtHMS(e.ms)}`).join("\n");
       return `${k} Total: ${total}\n${lines}`;
-    });
-    alert(blocks.join("\n\n"));
+    }).join("\n\n");
+
+    try {
+      await navigator.clipboard.writeText(blocks);
+      exportBtn.textContent = "✓ Copied";
+      setTimeout(()=>exportBtn.textContent = "Text view", 900);
+    } catch {
+      const ta=document.createElement("textarea");
+      ta.value=blocks; document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); document.body.removeChild(ta);
+      exportBtn.textContent = "✓ Copied";
+      setTimeout(()=>exportBtn.textContent = "Text view", 900);
+    }
   };
 
   const toggleLog = () => {
