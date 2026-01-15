@@ -456,16 +456,6 @@
       return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
-    function formatYMDHM(ts){
-      const d = new Date(ts);
-      const y = d.getFullYear();
-      const m = pad(d.getMonth()+1);
-      const day = pad(d.getDate());
-      const hh = pad(d.getHours());
-      const mm = pad(d.getMinutes());
-      return `${y}-${m}-${day} ${hh}:${mm}`;
-    }
-
     function todayKey(){
       const d = new Date();
       const y = d.getFullYear();
@@ -593,20 +583,15 @@
         const main = document.createElement("div");
         main.className = "logMain";
 
-        // ✅ Slim-compatible one-line format:
-        // YYYY-MM-DD HH:MM | 00:00:00 | TaskName
         const range = document.createElement("div");
         range.className = "range";
-        const when = it.startAt ? formatYMDHM(it.startAt) : `${todayKey()} --:--`;
-        const durText = formatHMS(it.durationMs || 0);
-        const nameText = (it.task && it.task.trim()) ? it.task.trim() : "Task";
-        range.textContent = `${when} | ${durText} | ${nameText}`;
+        const st = it.startAt ? formatHM(it.startAt) : "--:--";
+        const en = it.endAt ? formatHM(it.endAt) : "--:--";
+        range.textContent = `${st}–${en}`;
 
-        // keep existing element but hide it so log is truly "1 line"
         const task = document.createElement("div");
         task.className = "task";
-        task.textContent = "";
-        task.style.display = "none";
+        task.textContent = (it.task && it.task.trim()) ? it.task.trim() : "Task";
 
         main.appendChild(range);
         main.appendChild(task);
@@ -704,7 +689,7 @@
       renderLog();
       syncButtons();
 
-      // ✅ Common fix 2 (Stop): clear task input after Stop completes (input clear only)
+      // ✅ Stop: clear task input after Stop completes
       taskInput.value = "";
 
       showToast("Added to log");
@@ -723,7 +708,7 @@
       renderTime();
       syncButtons();
 
-      // ✅ Common fix 2 (Reset): clear task input (input clear only)
+      // ✅ Reset: clear task input
       taskInput.value = "";
     }
 
@@ -733,6 +718,11 @@
       renderLog();
     }
 
+    // ✅ Copy (Report) output format:
+    // Daily Report YYYY-MM-DD
+    // Total: 00:00:00
+    //
+    // start–end | 00:00:03 | Task
     function buildReportText(){
       const d = todayKey();
       const items = loadLog().sort((a,b)=> (a.startAt||0) - (b.startAt||0));
@@ -746,8 +736,10 @@
       items.forEach(it=>{
         const st = it.startAt ? formatHM(it.startAt) : "--:--";
         const en = it.endAt ? formatHM(it.endAt) : "--:--";
+        const range = `${st}–${en}`;
+        const dur = formatHMS(it.durationMs || 0);
         const name = (it.task && it.task.trim()) ? it.task.trim() : "Task";
-        lines.push(`${st}–${en}  ${name}  (${formatHMS(it.durationMs || 0)})`);
+        lines.push(`${range} | ${dur} | ${name}`);
       });
 
       return lines.join("\n");
@@ -771,7 +763,7 @@
       }
     }
 
-    /* ✅ Clear: no confirm, immediate delete (Slim-like) */
+    /* ✅ Clear: no confirm, immediate delete */
     function clearToday(){
       localStorage.removeItem(storageKey());
       renderLog();
@@ -783,7 +775,7 @@
       renderTime();
       syncButtons();
 
-      // important: render totals immediately (log collapsed)
+      // totals render even when collapsed
       renderLog();
 
       startBtn.addEventListener("click", start);
@@ -811,3 +803,4 @@
   </script>
 </body>
 </html>
+
