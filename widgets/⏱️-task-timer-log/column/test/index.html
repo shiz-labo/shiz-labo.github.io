@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Task Timer (Log)</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --ink:#111111;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+
+      /* neutral + accents (keep original tone for this column version) */
+      --accent:#9fb8a5;   /* soft green */
+      --accent2:#9aa3ad;  /* soft gray */
+      --neutral:#c4c4c4;
+
+      --shadow: 0 1px 0 rgba(17,17,17,.04), 0 8px 24px rgba(17,17,17,.06);
+      --radius: 14px;
+
+      --btnTextLight:#ffffff;
+      --darkGray:#4A4A4A;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+                   Arial, "Noto Sans", sans-serif;
+      color:var(--ink);
+      background:var(--bg);
+    }
+
+    .wrap{
+      width:100%;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 14px;
+    }
+
+    .card{
+      border:1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      background: #fff;
+      overflow:hidden;
+    }
+
+    .head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 12px 14px;
+      border-bottom:1px solid var(--line);
+    }
+    .title{
+      display:flex; gap:10px; align-items:center;
+      min-width:0;
+    }
+    .badge{
+      width:34px; height:34px;
+      border:1px solid var(--line);
+      border-radius: 10px;
+      display:grid; place-items:center;
+      background:linear-gradient(180deg, #fff, #fafafa);
+    }
+    .title h1{
+      font-size: 14px;
+      margin:0;
+      font-weight: 650;
+      letter-spacing:.02em;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .sub{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top:2px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .content{
+      padding: 14px;
+      display:grid;
+      gap: 12px;
+    }
+
+    .row{
+      display:grid;
+      gap: 8px;
+    }
+    label{
+      font-size: 12px;
+      color: var(--muted);
+    }
+    input[type="text"]{
+      width:100%;
+      border:1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+      outline:none;
+      background:#fff;
+    }
+    input[type="text"]:focus{
+      border-color: rgba(159,184,165,.8);
+      box-shadow: 0 0 0 3px rgba(159,184,165,.20);
+    }
+
+    .timerBox{
+      border:1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: linear-gradient(180deg, #fff, #fcfcfc);
+      display:grid;
+      gap: 10px;
+    }
+    .time{
+      font-variant-numeric: tabular-nums;
+      font-size: 34px;
+      letter-spacing:.04em;
+      line-height:1.1;
+    }
+
+    .hint{
+      font-size: 12px;
+      color: var(--muted);
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .dot{
+      width:10px; height:10px; border-radius:50%;
+      border:1px solid var(--line);
+      display:inline-block;
+      position:relative;
+      top:1px;
+      background:#fff;
+    }
+    .dot.run{ background: var(--accent); border-color: rgba(159,184,165,.8); }
+    .dot.pause{ background: var(--accent2); border-color: rgba(154,163,173,.9); }
+    .dot.stop{ background:#fff; border-color: var(--neutral); }
+
+    /* status text rules */
+    #stateText{
+      font-weight:700;
+      color: var(--neutral);
+    }
+
+    .btns{
+      display:flex;
+      gap: 10px;
+      flex-wrap:wrap;
+    }
+    button{
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 13px;
+      cursor:pointer;
+      transition: transform .02s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease, color .2s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      user-select:none;
+    }
+    button:active{ transform: translateY(1px); }
+    button:hover{ box-shadow: 0 6px 18px rgba(17,17,17,.06); }
+    button[disabled]{ opacity:.5; cursor:not-allowed; box-shadow:none; }
+
+    /* start primary-ish (soft) */
+    .primary{
+      border-color: rgba(159,184,165,.85);
+      box-shadow: 0 0 0 3px rgba(159,184,165,.12) inset;
+    }
+
+    /* dashed style for reset / clear */
+    .ghost{
+      border-style:dashed;
+    }
+
+    .logCard{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:12px;
+      background:#fff;
+    }
+
+    .miniTotal{
+      display:flex;
+      justify-content:space-between;
+      align-items:baseline;
+      gap:10px;
+      padding: 10px 12px;
+      border:1px solid var(--line);
+      border-radius: 12px;
+      background:#fff;
+    }
+    .miniTotal b{
+      font-variant-numeric: tabular-nums;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .logWrap{ display:none; margin-top:10px; }
+    .logWrap.open{ display:block; }
+
+    .logBox{
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+      background:#fff;
+      max-height: 240px;
+      overflow:auto;
+    }
+
+    .logRow{
+      display:grid;
+      grid-template-columns: 160px 1fr auto;
+      gap: 18px;
+      align-items:center;
+      padding:6px 0;
+      border-top:1px dashed var(--line);
+    }
+    .logRow:first-child{ border-top:none; }
+
+    .logWhen{
+      color:var(--muted);
+      font-size:12px;
+      font-variant-numeric: tabular-nums;
+      white-space:nowrap;
+    }
+    .logTask{
+      font-size:13px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .logDur{
+      font-variant-numeric: tabular-nums;
+      font-size:13px;
+      font-weight:650;
+      white-space:nowrap;
+    }
+
+    .helper{
+      margin-top:6px;
+      font-size:11px;
+      color:var(--muted);
+      line-height:1.4;
+    }
+
+    .footerLine{
+      display:flex;
+      justify-content:flex-start;
+      align-items:center;
+      margin-top:8px;
+    }
+
+    /* “line-art” icon */
+    svg{ display:block }
+    .stroke{ stroke:#111; stroke-width:1.6; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    .accentFill{ fill: var(--accent); opacity:.35; }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card" role="application" aria-label="Task Timer Log">
+      <div class="head">
+        <div class="title">
+          <div class="badge" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path class="stroke" d="M12 8v5l3 2"/>
+              <path class="stroke" d="M19.5 12a7.5 7.5 0 1 1-15 0a7.5 7.5 0 0 1 15 0Z"/>
+              <path class="stroke" d="M9 3h6"/>
+              <path class="stroke" d="M12 3v2"/>
+              <circle class="accentFill" cx="18.5" cy="6.5" r="2.2"></circle>
+              <path class="stroke" d="M20.2 4.9l1.6-1.6"/>
+            </svg>
+          </div>
+          <div style="min-width:0">
+            <h1>Task Timer (Log)</h1>
+            <div class="sub">Logs accumulate until you clear them</div>
+          </div>
+        </div>
+
+        <div class="hint" title="Status">
+          <span class="dot stop" id="stateDot"></span>
+          <span id="stateText">Stopped</span>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="row">
+          <label for="taskName">Task name (optional)</label>
+          <input id="taskName" type="text" placeholder="e.g., Doc prep / Research" />
+        </div>
+
+        <div class="timerBox">
+          <div class="time" id="timeDisplay">00:00:00</div>
+
+          <div class="btns">
+            <button class="primary" id="startBtn" type="button" aria-label="Start">
+              <span aria-hidden="true">▶</span> Start
+            </button>
+            <button id="pauseBtn" type="button" aria-label="Pause" disabled>
+              <span aria-hidden="true">Ⅱ</span> Pause
+            </button>
+            <button id="stopBtn" type="button" aria-label="Stop" disabled>
+              <span aria-hidden="true">■</span> Stop
+            </button>
+            <button class="ghost" id="resetBtn" type="button" aria-label="Reset">
+              <span aria-hidden="true">↺</span> Reset
+            </button>
+          </div>
+
+          <div class="hint">
+            <span>Stop adds the time to the log.</span>
+            <span>Reset clears the timer without adding it to the log.</span>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>Log</label>
+
+          <div class="miniTotal">
+            <span style="font-size:12px; color:var(--muted);">Total</span>
+            <b id="totalAll">00:00:00</b>
+          </div>
+          <div class="helper">Total time of the logs below</div>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+            <button id="toggleLogBtn" type="button" aria-label="Toggle log">
+              <span aria-hidden="true">▾</span> Open log
+            </button>
+            <button id="copyLogBtn" type="button" aria-label="Copy log">
+              <span aria-hidden="true">⧉</span> Copy log
+            </button>
+            <button class="ghost" id="clearAllBtn" type="button" aria-label="Clear log">
+              <span aria-hidden="true">✕</span> Clear
+            </button>
+          </div>
+
+          <div class="logWrap" id="logWrap">
+            <div class="logBox" id="logArea" style="margin-top:10px;">
+              <div style="color:var(--muted); font-size:12px;">No entries yet.</div>
+            </div>
+            <div class="footerLine">
+              <span style="font-size:11px; color:var(--muted);">Log time is the start time</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ===== Utilities =====
+  const pad = (n) => String(n).padStart(2, "0");
+
+  const fmtHMS = (ms) => {
+    const total = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+  };
+
+  const fmtYMDHM = (ts) => {
+    const d = new Date(ts);
+    const y = d.getFullYear();
+    const mo = pad(d.getMonth() + 1);
+    const da = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mm = pad(d.getMinutes());
+    return `${y}-${mo}-${da} ${hh}:${mm}`;
+  };
+
+  // ===== Elements =====
+  const taskName = document.getElementById("taskName");
+  const timeDisplay = document.getElementById("timeDisplay");
+  const startBtn = document.getElementById("startBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const resetBtn = document.getElementById("resetBtn");
+
+  const stateDot = document.getElementById("stateDot");
+  const stateText = document.getElementById("stateText");
+
+  const totalAllEl = document.getElementById("totalAll");
+  const logWrap = document.getElementById("logWrap");
+  const logArea = document.getElementById("logArea");
+  const toggleLogBtn = document.getElementById("toggleLogBtn");
+  const copyLogBtn = document.getElementById("copyLogBtn");
+  const clearAllBtn = document.getElementById("clearAllBtn");
+
+  // ===== State =====
+  let timer = null;
+  let running = false;
+  let paused = false;
+  let startAt = 0;     // performance.now()
+  let elapsed = 0;     // ms
+  let startedStamp = 0; // Date.now() when first started (kept across pause/resume)
+
+  let logOpen = false;
+
+  // ===== Storage (Log version: accumulate until clear) =====
+  const STORAGE_KEY = "shiz-task-timer-logs-v1";
+  const NAME_KEY = "shiz-task-timer-lastname-v1";
+  const ALL_KEY = "__all__";
+
+  const loadRaw = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; } };
+  const saveRaw = (obj) => localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+
+  const getAllArray = () => {
+    const raw = loadRaw();
+
+    // already migrated
+    if (Array.isArray(raw[ALL_KEY])) return raw[ALL_KEY];
+
+    // migrate legacy { "YYYY-MM-DD": [...] } into { "__all__": [...] }
+    const keys = Object.keys(raw);
+    const merged = [];
+    for (const k of keys) {
+      const arr = raw[k];
+      if (Array.isArray(arr)) {
+        for (const e of arr) merged.push(e);
+      }
+    }
+    const migrated = { [ALL_KEY]: merged };
+    saveRaw(migrated);
+    return migrated[ALL_KEY];
+  };
+
+  const setAllArray = (arr) => {
+    saveRaw({ [ALL_KEY]: arr });
+  };
+
+  const loadLastName = () => localStorage.getItem(NAME_KEY) || "";
+  const saveLastName = (v) => localStorage.setItem(NAME_KEY, v);
+
+  const msSum = (arr) => arr.reduce((a, b) => a + (b.ms || b.durationMs || 0), 0);
+
+  const setUIState = (mode) => {
+    // mode: "stop" | "run" | "pause"
+    stateDot.className = "dot " + mode;
+
+    if (mode === "run") stateText.textContent = "Running";
+    if (mode === "pause") stateText.textContent = "Paused";
+    if (mode === "stop") stateText.textContent = "Stopped";
+
+    startBtn.disabled = (mode === "run");
+    pauseBtn.disabled = (mode === "stop");
+    stopBtn.disabled = (mode === "stop");
+    pauseBtn.textContent = (mode === "pause") ? "▶ Resume" : "Ⅱ Pause";
+  };
+
+  const tick = () => {
+    const now = performance.now();
+    const ms = elapsed + (now - startAt);
+    timeDisplay.textContent = fmtHMS(ms);
+  };
+
+  const renderAll = () => {
+    const arr = getAllArray();
+
+    // total reflects logs below
+    totalAllEl.textContent = fmtHMS(msSum(arr));
+
+    // if collapsed, do not render content (keeps UI light)
+    if (!logOpen) {
+      logArea.innerHTML = `<div style="color:var(--muted); font-size:12px;">No entries yet.</div>`;
+      if (arr.length) {
+        // keep empty message out when collapsed? still fine; will be replaced when opened
+        logArea.innerHTML = "";
+      }
+      return;
+    }
+
+    if (!arr.length) {
+      logArea.innerHTML = `<div style="color:var(--muted); font-size:12px;">No entries yet.</div>`;
+      return;
+    }
+
+    // newest first (like Slim)
+    const rows = arr.slice().reverse().map(e => {
+      const ts = (e.start || e.startAt || e.t || Date.now());
+      const when = fmtYMDHM(ts);
+
+      const nameRaw = (e.name || e.task || "Task");
+      const nameEsc = String(nameRaw).replace(/[&<>"']/g, s => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[s]));
+
+      const ms = (e.ms != null) ? e.ms : (e.durationMs || 0);
+
+      return `
+        <div class="logRow">
+          <div class="logWhen">${when}</div>
+          <div class="logTask">${nameEsc}</div>
+          <div class="logDur">${fmtHMS(ms)}</div>
+        </div>
+      `;
+    }).join("");
+
+    logArea.innerHTML = rows;
+  };
+
+  const start = () => {
+    if (running) return;
+
+    // first start stamp for this measurement (keep across pause/resume)
+    if (!paused && elapsed === 0) startedStamp = Date.now();
+
+    running = true;
+    paused = false;
+    startAt = performance.now();
+    timer = setInterval(tick, 250);
+    setUIState("run");
+  };
+
+  const pauseOrResume = () => {
+    if (!running && !paused) return;
+
+    if (running) {
+      running = false;
+      paused = true;
+      clearInterval(timer);
+      timer = null;
+      elapsed += (performance.now() - startAt);
+      setUIState("pause");
+    } else {
+      paused = false;
+      running = true;
+      startAt = performance.now();
+      timer = setInterval(tick, 250);
+      setUIState("run");
+    }
+  };
+
+  const reset = () => {
+    clearInterval(timer);
+    timer = null;
+    running = false;
+    paused = false;
+    startAt = 0;
+    elapsed = 0;
+    startedStamp = 0;
+    timeDisplay.textContent = "00:00:00";
+
+    // Reset clears task input (and stored last name, same as Slim Log behavior)
+    taskName.value = "";
+    saveLastName("");
+
+    setUIState("stop");
+  };
+
+  const stopAndLog = () => {
+    // finalize elapsed
+    if (running) {
+      elapsed += (performance.now() - startAt);
+      clearInterval(timer);
+      timer = null;
+      running = false;
+    }
+
+    if (!paused && elapsed === 0) {
+      setUIState("stop");
+      return;
+    }
+    paused = false;
+
+    const arr = getAllArray();
+
+    const name = (taskName.value || "").trim() || "Task";
+    arr.push({
+      start: startedStamp || Date.now(), // log time is the start time
+      t: Date.now(),
+      name,
+      ms: elapsed
+    });
+    setAllArray(arr);
+
+    // Stop clears timer + task input
+    reset();
+    renderAll();
+  };
+
+  const copyLog = async () => {
+    const arr = getAllArray();
+    const total = fmtHMS(msSum(arr));
+
+    // Total + lines: DateTime | Duration | Task
+    const lines = arr.map(e => {
+      const when = fmtYMDHM(e.start || e.startAt || e.t || Date.now());
+      const ms = (e.ms != null) ? e.ms : (e.durationMs || 0);
+      const dur = fmtHMS(ms);
+      const name = (e.name || e.task || "Task");
+      return `${when} | ${dur} | ${name}`;
+    });
+
+    const text = [`Total: ${total}`, ...lines].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      copyLogBtn.textContent = "✓ Copied";
+      setTimeout(() => (copyLogBtn.innerHTML = '<span aria-hidden="true">⧉</span> Copy log'), 900);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      copyLogBtn.textContent = "✓ Copied";
+      setTimeout(() => (copyLogBtn.innerHTML = '<span aria-hidden="true">⧉</span> Copy log'), 900);
+    }
+  };
+
+  const clearAll = () => {
+    // no confirm, clear immediately
+    setAllArray([]);
+    renderAll();
+  };
+
+  const toggleLog = () => {
+    logOpen = !logOpen;
+    logWrap.classList.toggle("open", logOpen);
+    toggleLogBtn.innerHTML = logOpen
+      ? '<span aria-hidden="true">▴</span> Close log'
+      : '<span aria-hidden="true">▾</span> Open log';
+    renderAll();
+  };
+
+  // ===== Wire events =====
+  startBtn.addEventListener("click", start);
+  pauseBtn.addEventListener("click", pauseOrResume);
+  stopBtn.addEventListener("click", stopAndLog);
+  resetBtn.addEventListener("click", reset);
+
+  toggleLogBtn.addEventListener("click", toggleLog);
+  copyLogBtn.addEventListener("click", copyLog);
+  clearAllBtn.addEventListener("click", clearAll);
+
+  // Persist task name while typing (optional convenience)
+  taskName.value = loadLastName();
+  taskName.addEventListener("input", () => saveLastName(taskName.value));
+
+  // Init
+  setUIState("stop");
+  renderAll();
+
+  // If page hidden, reduce tick frequency (visual only)
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && timer) {
+      clearInterval(timer);
+      timer = setInterval(tick, 1000);
+    } else if (!document.hidden && timer) {
+      clearInterval(timer);
+      timer = setInterval(tick, 250);
+    }
+  });
+})();
+</script>
+</body>
+</html>
