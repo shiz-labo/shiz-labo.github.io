@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Task Timer (Slim)</title>
+  <title>Task Timer（Log）</title>
   <style>
     :root{
       /* === 1. Color tokens === */
@@ -31,7 +31,12 @@
       background:var(--bgSoft);
     }
 
-    .wrap{ width:100%; max-width: 980px; margin:0 auto; padding:10px; }
+    .wrap{
+      width:100%;
+      max-width: 980px;
+      margin:0 auto;
+      padding:0;
+    }
 
     /* Timer outline (mint) */
     .card{
@@ -235,7 +240,7 @@
 <body>
   <div class="wrap">
     <!-- state class is applied here: state-stopped / state-running / state-paused -->
-    <div class="card state-stopped" id="appCard" role="application" aria-label="Task Timer Slim">
+    <div class="card state-stopped" id="appCard" role="application" aria-label="Task Timer（Log）">
       <div class="head">
         <div class="title">
           <div class="badge" aria-hidden="true">
@@ -248,7 +253,7 @@
             </svg>
           </div>
           <div style="min-width:0">
-            <h1>Task Timer (Slim)</h1>
+            <h1>Task Timer（Log）</h1>
           </div>
         </div>
 
@@ -588,3 +593,4 @@
 </script>
 </body>
 </html>
+
