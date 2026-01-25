@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>施工工程表（Webガント）</title>
+  <style>
+    :root{
+      --grid: #e5e7eb;
+      --ink: #111827;
+      --muted: #6b7280;
+      --bar: #d8d2c5;     /* グレージュ */
+      --holiday: #e6e6e6; /* 薄グレー */
+      --bg: #ffffff;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:12px 16px;
+      border-bottom:1px solid var(--grid);
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .title{ font-weight:700; }
+    .controls{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .controls button{
+      padding:8px 12px;
+      border:1px solid var(--grid);
+      background:#fff;
+      border-radius:8px;
+      cursor:pointer;
+    }
+    .controls input[type="file"]{
+      border:1px solid var(--grid);
+      padding:6px;
+      border-radius:8px;
+      background:#fff;
+      max-width:260px;
+    }
+    .hint{ color:var(--muted); font-size:12px; }
+    .meta{
+      padding:10px 16px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.6;
+    }
+    .gantt-wrap{
+      padding: 8px 16px 24px;
+      overflow:auto;
+    }
+    .gantt{
+      display:grid;
+      border:1px solid var(--grid);
+      background:#fff;
+    }
+    .cell{
+      border-right:1px solid var(--grid);
+      border-bottom:1px solid var(--grid);
+      padding:4px 6px;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .cell.center{ text-align:center; }
+    .cell.phase, .cell.task{
+      position:sticky;
+      left:0;
+      background:#fff;
+      z-index:3;
+    }
+    .cell.task{
+      left:160px;
+      z-index:3;
+    }
+    .col-phase{ width:160px; }
+    .col-task{ width:320px; }
+
+    .day{
+      width:18px;
+      text-align:center;
+      padding:4px 0;
+      font-size:11px;
+    }
+    .day.monthStart{
+      border-left:2px solid #808080;
+    }
+
+    .barCell{
+      position:relative;
+      height:20px;
+      padding:0;
+    }
+    .barCell .fill{
+      position:absolute;
+      inset:0;
+    }
+    .barCell.holiday .fill{ background: var(--holiday); }
+    .barCell.on .fill{ background: var(--bar); }
+
+    .barCell .label{
+      position:absolute;
+      top:-18px;
+      left:2px;
+      font-size:11px;
+      color: var(--ink);
+      background: rgba(255,255,255,0.92);
+      padding:1px 4px;
+      border:1px solid var(--grid);
+      border-radius:6px;
+      pointer-events:none;
+    }
+
+    @media print{
+      body{ background:#fff; }
+      .top, .hint{ display:none; }
+      .gantt-wrap{ overflow:visible; padding:0; }
+
+      @page{
+        size: A4 landscape;
+        margin: 8mm;
+      }
+
+      .cell.phase, .cell.task{ position: static; }
+
+      .pageBreak{
+        break-before: page;
+        page-break-before: always;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="title">施工工程表（Webガント）</div>
+
+    <div class="controls">
+      <button id="btnPrint" type="button">印刷（A4横）</button>
+
+      <label class="hint" for="file">CSVアップロード：</label>
+      <input id="file" type="file" accept=".csv,text/csv" />
+
+      <button id="btnClear" type="button">読み込みデータをクリア</button>
+      <span class="hint">（ドラッグ＆ドロップ可 / 端末内に保存）</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="meta" id="meta">
+      data/schedule.csv を読み込みます。CSVをアップロードすると上書き表示します。
+    </section>
+
+    <section class="gantt-wrap">
+      <div id="gantt"></div>
+    </section>
+  </main>
+
+  <script>
+    const CSV_PATH = "./data/schedule.csv";
+    const STORAGE_KEY = "gantt_schedule_csv";
+
+    // 最小：日曜だけ休日扱い（祝日対応は後で拡張）
+    function isSunday(date){
+      return date.getDay() === 0;
+    }
+
+    function parseCSV(text){
+      const lines = text.trim().split(/\r?\n/);
+      const header = lines.shift().split(",").map(s => s.trim());
+      return lines
+        .filter(l => l.trim())
+        .map(line => {
+          // カンマ含みの厳密CSVには未対応（最小実装）
+          const cols = line.split(",").map(s => s.trim());
+          const obj = {};
+          header.forEach((h, i) => obj[h] = cols[i] ?? "");
+          return obj;
+        });
+    }
+
+    function toDate(s){
+      const [y,m,d] = s.split("-").map(Number);
+      return new Date(y, m-1, d);
+    }
+
+    function fmtMD(d){
+      const m = d.getMonth()+1;
+      const day = d.getDate();
+      return `${m}/${day}`;
+    }
+
+    function addDays(d, n){
+      const x = new Date(d);
+      x.setDate(x.getDate()+n);
+      return x;
+    }
+
+    function sameDay(a,b){
+      return a.getFullYear()===b.getFullYear()
+        && a.getMonth()===b.getMonth()
+        && a.getDate()===b.getDate();
+    }
+
+    function monthKey(d){
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    }
+
+    function buildRange(items){
+      let min = null, max = null;
+      for(const it of items){
+        const s = toDate(it.start);
+        const e = toDate(it.end);
+        if(!min || s < min) min = s;
+        if(!max || e > max) max = e;
+      }
+      const start = new Date(min.getFullYear(), min.getMonth(), 1);
+      const end = new Date(max.getFullYear(), max.getMonth()+1, 0);
+      return {start, end};
+    }
+
+    function dateList(start, end){
+      const days = [];
+      for(let d=new Date(start); d<=end; d=addDays(d,1)){
+        days.push(new Date(d));
+      }
+      return days;
+    }
+
+    function groupByPhase(items){
+      const map = new Map();
+      for(const it of items){
+        const k = it.phase;
+        if(!map.has(k)) map.set(k, []);
+        map.get(k).push(it);
+      }
+      return map;
+    }
+
+    // 5ヶ月目の月初で改ページ（A4横2枚運用の目安）
+    function calcSplitMonth(start){
+      const y = start.getFullYear();
+      const m = start.getMonth();
+      return new Date(y, m+5, 1);
+    }
+
+    async function loadInitialCSV(){
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if(saved && saved.trim()){
+        return saved;
+      }
+      const res = await fetch(CSV_PATH, { cache: "no-store" });
+      if(!res.ok) throw new Error("CSVを読み込めませんでした");
+      return await res.text();
+    }
+
+    function setupUploader(onCSVLoaded){
+      const input = document.getElementById("file");
+      const btnClear = document.getElementById("btnClear");
+
+      input?.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if(!file) return;
+        const text = await file.text();
+        localStorage.setItem(STORAGE_KEY, text);
+        onCSVLoaded(text);
+      });
+
+      btnClear?.addEventListener("click", () => {
+        localStorage.removeItem(STORAGE_KEY);
+        location.reload();
+      });
+
+      window.addEventListener("dragover", (e) => e.preventDefault());
+      window.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files?.[0];
+        if(!file) return;
+        if(!file.name.toLowerCase().endsWith(".csv")) return;
+        const text = await file.text();
+        localStorage.setItem(STORAGE_KEY, text);
+        onCSVLoaded(text);
+      });
+    }
+
+    function addCell(root, text, className, span=1){
+      const div = document.createElement("div");
+      div.className = className || "cell";
+      div.textContent = text ?? "";
+      if(span > 1){
+        div.style.gridColumn = `span ${span}`;
+      }
+      root.appendChild(div);
+      return div;
+    }
+
+    function renderFromCSV(text){
+      const ganttRoot = document.getElementById("gantt");
+      ganttRoot.innerHTML = "";
+      ganttRoot.className = "gantt";
+
+      const raw = parseCSV(text);
+      const items = raw
+        .filter(x => x.phase && x.task && x.start && x.end)
+        .map(x => ({ phase:x.phase, task:x.task, start:x.start, end:x.end }));
+
+      if(items.length === 0){
+        document.getElementById("meta").textContent =
+          "CSVの内容が空、または列名が違います。ヘッダーは phase,task,start,end を想定しています。";
+        return;
+      }
+
+      const {start, end} = buildRange(items);
+      const days = dateList(start, end);
+      const splitMonth = calcSplitMonth(start);
+
+      document.getElementById("meta").textContent =
+        `期間：${start.getFullYear()}/${start.getMonth()+1}/${start.getDate()} 〜 ` +
+        `${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}（日付列：${days.length}日）` +
+        ` / 表示：m/d-m/d（バー上）`;
+
+      // grid template：左2列 + 日数分
+      const colDefs = [`160px`, `320px`, ...days.map(_ => "18px")].join(" ");
+      ganttRoot.style.gridTemplateColumns = colDefs;
+
+      // === ヘッダ1段目：月 ===
+      addCell(ganttRoot, "施工工程", "cell center col-phase");
+      addCell(ganttRoot, "内容", "cell center col-task");
+
+      const monthSpans = [];
+      let i=0;
+      while(i<days.length){
+        const mk = monthKey(days[i]);
+        let j=i;
+        while(j<days.length && monthKey(days[j])===mk) j++;
+        monthSpans.push({ from:i, to:j-1 });
+        i=j;
+      }
+
+      for(const sp of monthSpans){
+        const d0 = days[sp.from];
+        const label = `${d0.getFullYear()}年${d0.getMonth()+1}月`;
+        const span = sp.to - sp.from + 1;
+        addCell(ganttRoot, label, "cell center", span);
+      }
+
+      // === ヘッダ2段目：10/20/月末 ===
+      addCell(ganttRoot, "", "cell col-phase");
+      addCell(ganttRoot, "", "cell col-task");
+
+      for(let di=0; di<days.length; di++){
+        const d = days[di];
+        const next = addDays(d,1);
+        const isLast = next.getMonth() !== d.getMonth();
+        const show = (d.getDate()===10 || d.getDate()===20 || isLast) ? String(d.getDate()) : "";
+        const cls = ["cell","day", (d.getDate()===1 ? "monthStart":"")].join(" ");
+        const c = addCell(ganttRoot, show, cls);
+
+        // 5ヶ月境目の月初に改ページ目印（印刷時）
+        if(d.getDate()===1 && sameDay(d, splitMonth)){
+          c.classList.add("pageBreak");
+        }
+      }
+
+      // === 本体 ===
+      const byPhase = groupByPhase(items);
+
+      for(const [phase, list] of byPhase){
+        for(const it of list){
+          addCell(ganttRoot, phase, "cell phase col-phase");
+          addCell(ganttRoot, it.task, "cell task col-task");
+
+          const s = toDate(it.start);
+          const e = toDate(it.end);
+
+          for(const d of days){
+            const inRange = (d >= s && d <= e);
+            const isHol = isSunday(d);
+
+            const cell = document.createElement("div");
+            cell.className = "cell barCell" + (isHol ? " holiday":"") + (inRange ? " on":"");
+
+            const fill = document.createElement("div");
+            fill.className = "fill";
+            cell.appendChild(fill);
+
+            // ラベル：開始日列にのみ表示（m/d-m/d）
+            if(sameDay(d, s)){
+              const label = document.createElement("div");
+              label.className = "label";
+              label.textContent = `${fmtMD(s)}-${fmtMD(e)}`;
+              cell.appendChild(label);
+            }
+
+            ganttRoot.appendChild(cell);
+          }
+        }
+      }
+    }
+
+    async function main(){
+      setupUploader((newText) => renderFromCSV(newText));
+      const text = await loadInitialCSV();
+      renderFromCSV(text);
+
+      document.getElementById("btnPrint").addEventListener("click", () => window.print());
+    }
+
+    main().catch(err => {
+      console.error(err);
+      document.getElementById("meta").textContent = "表示に失敗しました。CSVの形式を確認してください。";
+      document.getElementById("gantt").textContent = "エラーが発生しました。";
+    });
+  </script>
+</body>
+</html>
