@@ -10,7 +10,7 @@
       --gridPrint: #d7dbe3;
       --ink: #111827;
       --muted: #6b7280;
-      --bar: #4f8bd6;          /* 添付の青に寄せたい場合はここ */
+      --bar: #4f8bd6;          /* バー色（必要なら変更） */
       --bg: #ffffff;
       --monthLine: #111111;    /* 月境界（太線） */
       --tickLine: #111111;     /* 10日区切り（線） */
@@ -53,7 +53,7 @@
       padding:6px;
       border-radius:8px;
       background:#fff;
-      max-width:280px;
+      max-width:320px;
     }
     .hint{ color:var(--muted); font-size:12px; }
     .meta{
@@ -73,13 +73,14 @@
       background:#fff;
     }
 
-    /* 基本：縦線は表示しない（10日区切りだけ後で付ける） */
+    /* 基本：縦線は出さない（10日区切りだけ後で付与） */
     .cell{
       border-bottom:1px solid var(--grid);
       border-right:none;
       padding:4px 6px;
       font-size:12px;
       white-space:nowrap;
+      background:#fff;
     }
     .cell.center{ text-align:center; }
 
@@ -104,12 +105,12 @@
       font-size:11px;
     }
 
-    /* 10日区切りの縦線（太め） */
+    /* 10日区切り縦線（太め） */
     .vline{
       border-right:2px solid var(--tickLine);
     }
 
-    /* 月初の縦線（さらに太い） */
+    /* 月初縦線（さらに太い） */
     .monthStart{
       border-left:3px solid var(--monthLine);
     }
@@ -117,7 +118,7 @@
     /* バーセル */
     .barCell{
       position:relative;
-      height:22px;
+      height: var(--rowH, 22px);
       padding:0;
     }
     .barCell .fill{
@@ -128,7 +129,7 @@
       background: var(--bar);
     }
 
-    /* ラベル（開始列に表示） */
+    /* ラベル（開始列に m/d-m/d のみ） */
     .barCell .label{
       position:absolute;
       top:-16px;
@@ -142,31 +143,43 @@
       white-space:nowrap;
     }
 
-    /* 印刷改ページ */
+    /* 改ページ */
     .pageBreak{ }
 
     /* ====== print ====== */
     @media print{
+      /* 画面操作UIは印刷しない（必要なら印刷用ヘッダを別途用意できます） */
       .top, .meta{ display:none !important; }
       body{ background:#fff; }
       .gantt-wrap{ overflow:visible; padding:0; }
 
-      @page{ size: A4 landscape; margin: 8mm; }
+      @page{
+        size: A3 landscape;   /* ★A3横 */
+        margin: 8mm;
+      }
 
-      .cell{ font-size:10px; border-bottom:1px solid var(--gridPrint); }
+      .cell{
+        font-size:10px;
+        border-bottom:1px solid var(--gridPrint);
+      }
+
+      /* sticky解除 */
       .cell.phase, .cell.task{ position:static !important; }
 
-      /* 印刷：左列を狭く、内容は折り返し */
-      .cell.task{ white-space:normal; line-height:1.1; }
+      /* 内容列は折り返し */
+      .cell.task{
+        white-space:normal;
+        line-height:1.1;
+      }
 
       .day{ font-size:9px; }
 
-      /* 印刷：10日区切り線のみ（既にvline/monthStartに集約） */
       .vline{ border-right:2px solid var(--tickLine) !important; }
       .monthStart{ border-left:3px solid var(--monthLine) !important; }
 
       .barCell .label{ font-size:9px; top:-14px; }
 
+      /* 5ヶ月→6ヶ月目 月初で改ページ */
       .pageBreak{
         break-before: page;
         page-break-before: always;
@@ -180,7 +193,7 @@
     <div class="title">施工工程表（Webガント）</div>
 
     <div class="controls">
-      <button id="btnPrint" type="button" onclick="window.print()">印刷（A4横）</button>
+      <button id="btnPrint" type="button" onclick="window.print()">印刷（A3横）</button>
       <label class="hint" for="file">CSVアップロード：</label>
       <input id="file" type="file" accept=".csv,text/csv" />
       <span class="hint">（ドラッグ＆ドロップ可 / 端末内に保存）</span>
@@ -196,16 +209,31 @@
   </main>
 
   <script>
+    /**
+     * CSV仕様（ヘッダー必須）:
+     * phase,task,start,end
+     * 土・基礎工事,配筋,2026-03-06,2026-03-12
+     *
+     * 表示仕様（添付イメージ寄せ）:
+     * - 縦線は 10/20/月末 のみ（＋月初は太線）
+     * - 日曜・祝日は表記しない（背景も出さない）
+     * - バーは実働日のみ（日曜・祝日は塗らない）
+     * - ラベルは開始セルに m/d-m/d のみ
+     * - 印刷はA3横、横幅は自動で収め、行高もA3縦に合わせて自動調整
+     * - 5ヶ月=1ページ、6ヶ月目月初で改ページ
+     */
     const CSV_PATH = "./data/schedule.csv";
     const STORAGE_KEY = "gantt_schedule_csv";
 
-    // 祝日（必要に応じて追加／または別ファイル読み込みに拡張可）
+    // 祝日（必要に応じて追加／別ファイル読み込みにも拡張可）
     const HOLIDAYS_YYYYMMDD = new Set([
       "2026-01-01","2026-01-12","2026-02-11","2026-02-23","2026-03-20",
       "2026-04-29","2026-05-03","2026-05-04","2026-05-05",
       "2026-07-20","2026-08-11","2026-09-21","2026-09-22","2026-09-23",
       "2026-10-12","2026-11-03","2026-11-23"
     ]);
+
+    function mmToPx(mm){ return (mm / 25.4) * 96; } // 96dpi換算
 
     function ymd(d){
       const y = d.getFullYear();
@@ -318,6 +346,47 @@
       return window.matchMedia && window.matchMedia("print").matches;
     }
 
+    function computeLayout(daysCount, rowCount){
+      const print = isPrintMode();
+
+      if(!print){
+        // 画面用（固定）
+        return {
+          phaseW: "160px",
+          taskW: "320px",
+          dayW:  "18px",
+          rowH:  "22px"
+        };
+      }
+
+      // A3横: 420×297mm, margin 8mm
+      const pageWmm = 420, pageHmm = 297, marginMm = 8;
+      const printWpx = mmToPx(pageWmm - marginMm*2);
+      const printHpx = mmToPx(pageHmm - marginMm*2);
+
+      // 左2列（印刷用は狭め）
+      const phaseWpx = 110;
+      const taskWpx  = 160;
+
+      // 日付列幅：必ず横幅に収める（下限〜上限）
+      let dayWpx = Math.floor((printWpx - phaseWpx - taskWpx) / daysCount);
+      dayWpx = Math.max(6, Math.min(dayWpx, 18));
+
+      // 行高：A3縦に合わせて“広げる”
+      // ヘッダ2行 + 本体rowCount。余白分を控えめに見積もり。
+      const headerRows = 2;
+      const totalRows = headerRows + rowCount;
+      let rowHpx = Math.floor((printHpx - 60) / totalRows); // 60pxはバッファ
+      rowHpx = Math.max(18, Math.min(rowHpx, 28));
+
+      return {
+        phaseW: phaseWpx + "px",
+        taskW:  taskWpx  + "px",
+        dayW:   dayWpx   + "px",
+        rowH:   rowHpx   + "px"
+      };
+    }
+
     function renderFromCSV(text){
       const ganttRoot = document.getElementById("gantt");
       ganttRoot.innerHTML = "";
@@ -347,22 +416,19 @@
         }
       }
 
-      // metaは画面だけ（印刷は非表示）
+      // 画面用meta（印刷では非表示）
       document.getElementById("meta").textContent =
         `期間：${start.getFullYear()}/${start.getMonth()+1}/${start.getDate()}〜`+
         `${end.getFullYear()}/${end.getMonth()+1}/${end.getDate()}（${days.length}日）`;
 
-      // 列幅：印刷時だけ詰める（A方式）
-      const print = isPrintMode();
-      const phaseW = print ? "110px" : "160px";
-      const taskW  = print ? "160px" : "320px";
-      const dayW   = print ? "14px"  : "18px";
+      // ===== 印刷時：横幅フィット + 行高調整 =====
+      const layout = computeLayout(days.length, items.length);
+      ganttRoot.style.setProperty("--rowH", layout.rowH);
+      ganttRoot.style.gridTemplateColumns = [layout.phaseW, layout.taskW, ...days.map(_ => layout.dayW)].join(" ");
 
-      ganttRoot.style.gridTemplateColumns = [phaseW, taskW, ...days.map(_ => dayW)].join(" ");
-
-      // === ヘッダ1段目：月 ===
-      addCell(ganttRoot, "施工工程", "cell center col-phase");
-      addCell(ganttRoot, "内容", "cell center col-task");
+      // === ヘッダ1段目：月（例: 3月） ===
+      addCell(ganttRoot, "施工工程", "cell center");
+      addCell(ganttRoot, "内容", "cell center");
 
       const monthSpans = [];
       let i=0;
@@ -373,6 +439,7 @@
         monthSpans.push({ from:i, to:j-1 });
         i=j;
       }
+
       for(const sp of monthSpans){
         const d0 = days[sp.from];
         const label = `${d0.getMonth()+1}月`;
@@ -380,8 +447,8 @@
       }
 
       // === ヘッダ2段目：10/20/月末のみ数字表示（縦線もここだけ） ===
-      addCell(ganttRoot, "", "cell col-phase");
-      addCell(ganttRoot, "", "cell col-task");
+      addCell(ganttRoot, "", "cell");
+      addCell(ganttRoot, "", "cell");
 
       for(let di=0; di<days.length; di++){
         const d = days[di];
@@ -399,13 +466,13 @@
         addCell(ganttRoot, show, classes.join(" "));
       }
 
-      // === 本体：日曜・祝日は“表記も色も出さない”（ただ塗らない） ===
+      // === 本体：日曜・祝日は表記も色も出さない（ただ塗らない） ===
       const byPhase = groupByPhase(items);
 
       for(const [phase, list] of byPhase){
         for(const it of list){
-          addCell(ganttRoot, phase, "cell phase col-phase");
-          addCell(ganttRoot, it.task, "cell task col-task");
+          addCell(ganttRoot, phase, "cell phase");
+          addCell(ganttRoot, it.task, "cell task");
 
           const s = toDate(it.start);
           const e = toDate(it.end);
@@ -461,12 +528,13 @@
           "初期CSVが見つかりません。CSVをアップロード（またはドラッグ＆ドロップ）してください。";
       }
 
-      // 印刷前後にモード切替で再描画（A方式の安定化）
+      // 印刷前後に印刷レイアウトへ再描画（A方式の安定化）
       window.addEventListener("beforeprint", async () => {
         const saved = localStorage.getItem(STORAGE_KEY);
         const txt = saved && saved.trim() ? saved : await loadInitialCSV().catch(()=> "");
         if(txt) renderFromCSV(txt);
       });
+
       window.addEventListener("afterprint", async () => {
         const saved = localStorage.getItem(STORAGE_KEY);
         const txt = saved && saved.trim() ? saved : await loadInitialCSV().catch(()=> "");
@@ -482,3 +550,4 @@
   </script>
 </body>
 </html>
+
